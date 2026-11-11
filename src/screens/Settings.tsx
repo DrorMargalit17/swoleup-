@@ -1,5 +1,6 @@
 // Settings: grouped rows + sub-screens (api key, medical, equipment, diet,
 // backup, rest timer, sources). Tailwind + ds + motion; logic unchanged.
+import { ReminderPreferencesValue,DEFAULT_REMINDERS } from '../ReminderPreferences';
 import { apiDiagnostics } from '../apiDiagnostics';
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from '../vendor/framer-motion.vendor.mjs';
@@ -35,8 +36,9 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
         const probe=document.createElement('div');probe.style.cssText='position:fixed;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';document.body.appendChild(probe);const ps=getComputedStyle(probe);const safe=[ps.paddingTop,ps.paddingBottom];probe.remove();
         const units:Record<string,number>={}; for(const unit of ['vh','lvh','dvh','svh']) {const el=document.createElement('div');el.style.cssText='position:absolute;visibility:hidden;height:100'+unit;document.body.appendChild(el);units[unit]=el.getBoundingClientRect().height;el.remove();}
         const rect=(el:HTMLElement)=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};
-        setDisplayInfo(JSON.stringify({version:'6.9',screen:[screen.width,screen.height],inner:[innerWidth,innerHeight],outer:[outerWidth,outerHeight],dpr:devicePixelRatio,units,api:apiDiagnostics(),visual:window.visualViewport?{height:visualViewport!.height,top:visualViewport!.offsetTop,scale:visualViewport!.scale}:null,safe,standalone:matchMedia('(display-mode:standalone)').matches,app:rect(app),nav:rect(nav),navPadding:getComputedStyle(nav).paddingBottom,root:rect(document.querySelector('#root') as HTMLElement)},null,0).replace(/,"(?=[a-zA-Z])/g,',\n"'));
+        setDisplayInfo(JSON.stringify({version:'7.0',screen:[screen.width,screen.height],inner:[innerWidth,innerHeight],outer:[outerWidth,outerHeight],dpr:devicePixelRatio,units,api:apiDiagnostics(),visual:window.visualViewport?{height:visualViewport!.height,top:visualViewport!.offsetTop,scale:visualViewport!.scale}:null,safe,standalone:matchMedia('(display-mode:standalone)').matches,app:rect(app),nav:rect(nav),navPadding:getComputedStyle(nav).paddingBottom,root:rect(document.querySelector('#root') as HTMLElement)},null,0).replace(/,"(?=[a-zA-Z])/g,',\n"'));
     };
+    const [reminders,setReminders]=useStore<ReminderPreferencesValue>('reminders.v1',DEFAULT_REMINDERS);
     const [dark, setDark] = useStore<boolean>('dark.v1', true);
     const [sub, setSub] = useState<Sub>('main');
     const [profile, setProfile] = useStore<Profile | null>('profile.v1', null);
@@ -75,7 +77,7 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
         'profile.v1': profile, 'plan.v1': plan, 'logs.v1': logs, 'water.v1': water,
         'weights.v1': weights, 'foods.v1': foods, 'coach.v1': coach, 'progress.v1': progress,
         'equipw.v1': equipW, 'mealhistory.v1': mealHistory,
-        'dark.v1': dark, 'rest.v1': restTimer, 'mealfavs.v1': favs, 'skips.v1': skips,
+        'reminders.v1':reminders, 'dark.v1': dark, 'rest.v1': restTimer, 'mealfavs.v1': favs, 'skips.v1': skips,
     }, null, 2);
 
     const exportData = async () => {
@@ -112,6 +114,7 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
             if (Array.isArray(data['equipw.v1'])) setEquipW(data['equipw.v1'] as EquipWeight[]);
             if (Array.isArray(data['mealhistory.v1'])) setMealHistory(data['mealhistory.v1'].filter(v => typeof v === 'string').slice(-60));
             if (typeof data['dark.v1'] === 'boolean') setDark(data['dark.v1']);
+            if(data['reminders.v1']){const r=data['reminders.v1'] as ReminderPreferencesValue;setReminders({sound:r.sound!==false,times:Array.isArray(r.times)?r.times.filter(t=>typeof t==='string'&&/^([01]\d|2[0-3]):[0-5]\d$/.test(t)).slice(0,3):[]});}
             if (data['rest.v1']) setRestTimer(data['rest.v1'] as RestTimer);
             if (Array.isArray(data['mealfavs.v1'])) setFavs(data['mealfavs.v1'] as MealSuggestion[]);
             if (data['skips.v1']) setSkips(data['skips.v1'] as Record<string, number>);
@@ -347,7 +350,7 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
         </Group>
 
         <Card className="p-4 flex flex-col gap-3">
-            <strong className="text-[14px] text-ink">SwoleUp v6.9</strong>
+            <strong className="text-[14px] text-ink">SwoleUp v7.0</strong>
             <button className="text-[14px] text-acc text-right" onClick={checkUpdate}>בדוק עדכון</button>
             {updateMessage && <p className="text-[13px] text-muted">{updateMessage}</p>}
             {updateAvailable && <button className="text-acc" onClick={()=>location.reload()}>רענן לגרסה החדשה</button>}
@@ -364,7 +367,7 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
                     <div className="flex gap-2">
                         <Button variant="danger" onClick={() => {
                             setProfile(null); setPlan(null); setLogs([]); setWater({}); setWeights([]);
-                            setFoods({}); setMealHistory([]); setCoach([]); setCoachSettings(DEFAULT_SETTINGS); setProgress({}); setEquipW([]);
+                            setReminders(DEFAULT_REMINDERS);setFoods({}); setMealHistory([]); setCoach([]); setCoachSettings(DEFAULT_SETTINGS); setProgress({}); setEquipW([]);
                             onReset();
                         }}>כן, מחק הכל</Button>
                         <Button variant="ghost" onClick={() => setConfirmReset(false)}>ביטול</Button>

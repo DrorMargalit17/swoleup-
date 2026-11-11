@@ -2,6 +2,8 @@
 // (add/remove sets, per-set reps, tap-to-edit weight auto-filled from settings),
 // free navigation between exercises with data preserved, pause/resume, rest
 // timer with ±15s, end-workout rating slider + feedback sheet.
+import { unlockRestAudio, playRestChime } from '../restSound';
+import { DEFAULT_REMINDERS, ReminderPreferencesValue } from '../ReminderPreferences';
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from '../vendor/framer-motion.vendor.mjs';
 import { PlanDay, WorkoutLog, ExerciseLog, RestTimer, WorkoutSession, EquipWeight, exerciseById, sectionOf, topOfRange } from '../data';
@@ -21,8 +23,9 @@ function useTicker(active: boolean): number {
     const [, force] = useState(0);
     useEffect(() => {
         if (!active) return;
+        const visible=()=>force(x=>x+1);document.addEventListener('visibilitychange',visible);
         const t = setInterval(() => force((x) => x + 1), 1000);
-        return () => clearInterval(t);
+        return () => {clearInterval(t);document.removeEventListener('visibilitychange',visible)};
     }, [active]);
     return Date.now();
 }
@@ -54,6 +57,9 @@ export function Workout({ day, prefill, resume, onFinish, onCancel, onPause }: P
     const [restSec, setRestSec] = useState(resume ? Math.ceil(resume.restLeftMs / 1000) : 0);
     const [restEnd, setRestEnd] = useState(resume && resume.restLeftMs > 0 ? Date.now() + resume.restLeftMs : 0);
     const [restCfg] = useStore<RestTimer>('rest.v1', { on: false, sec: 90 });
+    const [reminders] = useStore<ReminderPreferencesValue>('reminders.v1', DEFAULT_REMINDERS);
+    const sounded=React.useRef(0);
+    useEffect(()=>{const unlock=()=>{if(reminders.sound)void unlockRestAudio()};document.addEventListener('click',unlock);return()=>document.removeEventListener('click',unlock)},[reminders.sound]);
     const [equipW] = useStore<EquipWeight[]>('equipw.v1', []);
     const [helpOpen, setHelpOpen] = useState(false);
     const [kgEdit, setKgEdit] = useState<number | null>(null); // set index of current exercise
@@ -97,7 +103,7 @@ export function Workout({ day, prefill, resume, onFinish, onCancel, onPause }: P
 
     useEffect(() => {
         if (phase === 'rest' && restLeft <= 0) {
-            try { navigator.vibrate?.(200); } catch { /* noop */ }
+            if(sounded.current!==restEnd){sounded.current=restEnd;if(reminders.sound&&Date.now()-restEnd<10000)playRestChime();if(document.visibilityState==='visible')try{navigator.vibrate?.([150,80,150])}catch{}}
             advance();
         }
     }, [phase, restLeft]);
@@ -108,6 +114,7 @@ export function Workout({ day, prefill, resume, onFinish, onCancel, onPause }: P
 
 
     const completeSet = () => {
+        if(reminders.sound)void unlockRestAudio();
         patchSet(ei, si, { done: true });
         if (allDoneAfter(ei, si)) { setView('rate'); setPhase('idle'); return; }
         const rest = restCfg.on ? restCfg.sec : planEx.restSec;
