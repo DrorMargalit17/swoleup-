@@ -273,10 +273,11 @@ input, textarea { scroll-margin-block:24px; }
 /* Installed iOS app: fill the layout viewport, never visualViewport.height.
    The status bar and home-indicator insets are each counted exactly once. */
 @media (display-mode:standalone) {
-    html, body, #root { height:100%; }
-    .app:not(.onboarding-app) { position:fixed; inset:0; height:auto; min-height:0; }
+    html { height:100vh; height:100lvh; min-height:100vh; min-height:100lvh; }
+    body, #root { height:100%; }
+    .app:not(.onboarding-app) { position:relative; inset:auto; height:100vh; height:100lvh; min-height:0; }
     .app { padding-top:calc(env(safe-area-inset-top,0px) + 8px); }
-    .tabbar { padding-bottom:calc(4px + env(safe-area-inset-bottom,0px)); }
+    .tabbar { padding-bottom:env(safe-area-inset-bottom,0px); }
 }
 
 /* Coach: full-width greeting and a bottom composer, with a scrollable chat. */
