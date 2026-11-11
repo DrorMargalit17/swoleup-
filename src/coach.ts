@@ -1,4 +1,5 @@
 // AI coach: direct browser calls to the user's own LLM key.
+import { apiCspSince, recordApi } from './apiDiagnostics';
 import { Profile, Plan, WorkoutLog, WeightEntry, GOAL_LABEL, calorieTarget, waterTargetMl, proteinTarget } from './data';
 
 export interface CoachMsg { role: 'user' | 'coach'; text: string; ts: number }
@@ -34,15 +35,24 @@ export async function geminiGenerate(settings: CoachSettings, body: unknown, onS
         for(let n=0;n<attempts;n++) {
             attempt++;
             let res:Response;
+            const started=Date.now();recordApi('request',attempt,started);
             try {
                 res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-                    method:'POST', headers:{'Content-Type':'application/json','x-goog-api-key':settings.apiKey}, body:JSON.stringify(body), signal:AbortSignal.timeout(25000),
+                    method:'POST', headers:{'Content-Type':'application/json','x-goog-api-key':settings.apiKey}, body:JSON.stringify(body), signal:AbortSignal.timeout(45000),
                 });
-            } catch {
-                throw new Error('לא הצלחנו להתחבר לגוגל. בדוק את החיבור ונסה שוב בעוד רגע.');
+            } catch(e) {
+                // CSP delivery may follow fetch rejection by one event-loop turn.
+                await new Promise(r=>setTimeout(r,0));
+                const reason=apiCspSince(started)?'csp':e instanceof DOMException && (e.name==='TimeoutError'||e.name==='AbortError')?'timeout':!navigator.onLine?'offline':'network';
+                recordApi(reason,attempt,started);
+                throw new Error(reason==='csp'?'הדפדפן חסם את החיבור לגוגל בגלל מדיניות האתר. קוד בדיקה: csp.':reason==='timeout'?'גוגל לא ענתה בזמן. נסה שוב בעוד רגע. קוד בדיקה: timeout.':reason==='offline'?'המכשיר מדווח שאין חיבור לאינטרנט. קוד בדיקה: offline.':'החיבור לגוגל נכשל לפני שהתקבלה תשובה. זה יכול להיות חיבור, סינון או תקלה אצל הספק. קוד בדיקה: network.');
             }
-            if(res.ok){onStatus?.('');return res.json()}
-            lastStatus=res.status;
+            if(res.ok){
+                onStatus?.('');
+                try{const result=await res.json();recordApi('success',attempt,started);return result;}
+                catch{recordApi('response',attempt,started);throw new Error('התקבלה תשובה שלא ניתן לקרוא מגוגל. קוד בדיקה: response.');}
+            }
+            lastStatus=res.status;recordApi('status',attempt,started,res.status);
             if(res.status===400||res.status===401||res.status===403) throw new Error('גוגל דחתה את הבקשה. בדוק את המפתח, הרשאות ה-API והמודל בהגדרות.');
             if(res.status===404) break; // Only the missing model justifies immediate fallback.
             if(!TRANSIENT_STATUSES.has(res.status))throw new Error('לא התקבלה תשובה מגוגל. נסה שוב בעוד רגע.');

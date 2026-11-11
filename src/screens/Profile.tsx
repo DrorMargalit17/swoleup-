@@ -270,7 +270,7 @@ export function ProfileScreen({ profile, plan, onRedoOnboarding, onReset, goCoac
             </div>
         </MotionCard>
 
-        <p className="text-center text-[12px] text-faint">SwoleUp v6.7 · נבנה אישית בשבילך.</p>
+        <p className="text-center text-[12px] text-faint">SwoleUp v6.8 · נבנה אישית בשבילך.</p>
 
         <Sheet open={weighOpen} onClose={() => setWeighOpen(false)} title="מה המשקל שלך?">
             <div className="flex items-center justify-center gap-6 my-2">
