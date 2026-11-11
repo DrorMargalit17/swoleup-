@@ -15,6 +15,14 @@ const DIET_OPTIONS: [Profile['diet'], string][] = [['everything', 'אוכל הכ
 type Sub = 'main' | 'diet' | 'medical' | 'equipment' | 'weights' | 'backup' | 'sources' | 'apikey' | 'timer';
 
 export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => void; onRedoOnboarding: () => void; onReset: () => void }) {
+    const [displayInfo, setDisplayInfo] = useState('');
+    const readDisplayInfo = () => {
+        const app=document.querySelector('.app') as HTMLElement;
+        const nav=document.querySelector('nav') as HTMLElement;
+        const probe=document.createElement('div');probe.style.cssText='position:fixed;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';document.body.appendChild(probe);const ps=getComputedStyle(probe);const safe=[ps.paddingTop,ps.paddingBottom];probe.remove();
+        const rect=(el:HTMLElement)=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};
+        setDisplayInfo(JSON.stringify({version:'6.4',screen:[screen.width,screen.height],inner:[innerWidth,innerHeight],outer:[outerWidth,outerHeight],dpr:devicePixelRatio,visual:window.visualViewport?{height:visualViewport!.height,top:visualViewport!.offsetTop,scale:visualViewport!.scale}:null,safe,standalone:matchMedia('(display-mode:standalone)').matches,app:rect(app),nav:rect(nav),navPadding:getComputedStyle(nav).paddingBottom,root:rect(document.querySelector('#root') as HTMLElement)},null,0).replace(/,"(?=[a-zA-Z])/g,',\n"'));
+    };
     const [dark, setDark] = useStore<boolean>('dark.v1', true);
     const [sub, setSub] = useState<Sub>('main');
     const [profile, setProfile] = useStore<Profile | null>('profile.v1', null);
@@ -323,6 +331,11 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
             <Row icon="book" label="גיבוי ושחזור" sub2="ייצוא וייבוא של כל הנתונים" onClick={() => setSub('backup')} />
             <Row icon="question" label="מידע רפואי ומקורות" onClick={() => setSub('sources')} />
         </Group>
+
+        <Card className="p-4">
+            <button className="text-[14px] text-muted text-right" onClick={readDisplayInfo}>מידע תצוגה לבדיקה</button>
+            {displayInfo && <pre dir="ltr" style={{fontSize:12,whiteSpace:'pre-wrap',margin:0,userSelect:'text'}}>{displayInfo}</pre>}
+        </Card>
 
         <Card className="p-5 flex flex-col gap-3 border-danger/30">
             <h2 className="text-[17px] font-extrabold text-ink">איפוס</h2>

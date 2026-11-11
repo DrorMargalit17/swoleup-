@@ -298,3 +298,8 @@ input, textarea { scroll-margin-block:24px; }
 .coach-send { width:46px; height:46px; border-radius:50%; display:grid; place-items:center; flex-shrink:0; color:var(--lime-ink); background:var(--lime); }
 .coach-send:disabled { background:var(--card2); color:var(--ink2); border:1px solid var(--hair); }
 .coach-settings-button { background:var(--lime); color:var(--lime-ink); padding:12px 16px; border-radius:14px; font-weight:700; }
+
+/* Long screens scroll as documents within their panel. Never compress cards. */
+.screen > * { flex-shrink:0; }
+.coach-panel > .screen:not(.coach-screen) { flex:1; min-height:0; overflow-y:auto; padding-bottom:20px; }
+.coach-screen > .chat { flex-shrink:1; }
