@@ -1,6 +1,5 @@
 // Profile: level/xp, stats, weight chart, calorie bars, badges, history,
 // appearance, install, weigh-in sheet. Tailwind + ds + motion; logic unchanged.
-import { ReminderPreferences } from '../ReminderPreferences';
 import React, { useMemo, useState } from 'react';
 import { motion } from '../vendor/framer-motion.vendor.mjs';
 import { Profile, Plan, WorkoutLog, WeightEntry, FoodEntry } from '../data';
@@ -223,7 +222,6 @@ export function ProfileScreen({ profile, plan, onRedoOnboarding, onReset, goCoac
             </div>
         </MotionCard>
 
-        <ReminderPreferences />
 
         <MotionCard className="p-4">
             <h2 className="text-[16px] font-extrabold text-ink">ההישגים שלך:</h2>
@@ -273,7 +271,7 @@ export function ProfileScreen({ profile, plan, onRedoOnboarding, onReset, goCoac
             </div>
         </MotionCard>
 
-        <p className="text-center text-[12px] text-faint">SwoleUp v7.0 · נבנה אישית בשבילך.</p>
+        <p className="text-center text-[12px] text-faint">SwoleUp v7.1 · נבנה אישית בשבילך.</p>
 
         <Sheet open={weighOpen} onClose={() => setWeighOpen(false)} title="מה המשקל שלך?">
             <div className="flex items-center justify-center gap-6 my-2">

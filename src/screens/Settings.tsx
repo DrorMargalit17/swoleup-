@@ -1,6 +1,6 @@
 // Settings: grouped rows + sub-screens (api key, medical, equipment, diet,
 // backup, rest timer, sources). Tailwind + ds + motion; logic unchanged.
-import { ReminderPreferencesValue,DEFAULT_REMINDERS } from '../ReminderPreferences';
+import { ReminderPreferences,ReminderPreferencesValue,DEFAULT_REMINDERS } from '../ReminderPreferences';
 import { apiDiagnostics } from '../apiDiagnostics';
 import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from '../vendor/framer-motion.vendor.mjs';
@@ -36,7 +36,7 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
         const probe=document.createElement('div');probe.style.cssText='position:fixed;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';document.body.appendChild(probe);const ps=getComputedStyle(probe);const safe=[ps.paddingTop,ps.paddingBottom];probe.remove();
         const units:Record<string,number>={}; for(const unit of ['vh','lvh','dvh','svh']) {const el=document.createElement('div');el.style.cssText='position:absolute;visibility:hidden;height:100'+unit;document.body.appendChild(el);units[unit]=el.getBoundingClientRect().height;el.remove();}
         const rect=(el:HTMLElement)=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};
-        setDisplayInfo(JSON.stringify({version:'7.0',screen:[screen.width,screen.height],inner:[innerWidth,innerHeight],outer:[outerWidth,outerHeight],dpr:devicePixelRatio,units,api:apiDiagnostics(),visual:window.visualViewport?{height:visualViewport!.height,top:visualViewport!.offsetTop,scale:visualViewport!.scale}:null,safe,standalone:matchMedia('(display-mode:standalone)').matches,app:rect(app),nav:rect(nav),navPadding:getComputedStyle(nav).paddingBottom,root:rect(document.querySelector('#root') as HTMLElement)},null,0).replace(/,"(?=[a-zA-Z])/g,',\n"'));
+        setDisplayInfo(JSON.stringify({version:'7.1',screen:[screen.width,screen.height],inner:[innerWidth,innerHeight],outer:[outerWidth,outerHeight],dpr:devicePixelRatio,units,api:apiDiagnostics(),visual:window.visualViewport?{height:visualViewport!.height,top:visualViewport!.offsetTop,scale:visualViewport!.scale}:null,safe,standalone:matchMedia('(display-mode:standalone)').matches,app:rect(app),nav:rect(nav),navPadding:getComputedStyle(nav).paddingBottom,root:rect(document.querySelector('#root') as HTMLElement)},null,0).replace(/,"(?=[a-zA-Z])/g,',\n"'));
     };
     const [reminders,setReminders]=useStore<ReminderPreferencesValue>('reminders.v1',DEFAULT_REMINDERS);
     const [dark, setDark] = useStore<boolean>('dark.v1', true);
@@ -265,9 +265,9 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
         const ss = String(restTimer.sec % 60).padStart(2, '0');
         const bump = (d: number) => setRestTimer({ ...restTimer, sec: Math.min(300, Math.max(30, restTimer.sec + d)) });
         return <div className="screen">
-            {head('שיימר מנוחה', () => setSub('main'))}
+            {head('טיימר מנוחה', () => setSub('main'))}
             <Card className="p-5 flex flex-col gap-3.5">
-                <h2 className="text-[17px] font-extrabold text-ink">שיימר מנוחה קבוע</h2>
+                <h2 className="text-[17px] font-extrabold text-ink">טיימר מנוחה קבוע</h2>
                 <p className="text-[13px] text-muted">כשהוא פעיל, המנוחה בין סטים תמיד באותו אורך. כשהוא כבוי, המנוחה מותאמת לכל תרגיל לפי התוכנית.</p>
                 <div className="flex gap-2">
                     <Chip active={restTimer.on} onClick={() => setRestTimer({ ...restTimer, on: true })}>פעיל</Chip>
@@ -331,8 +331,10 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
             <Row icon="plus" label="מגבלות רפואיות" sub2={profile.limitations ? profile.limitations.slice(0, 40) : 'לא צוין'} onClick={() => { setMedText(profile.limitations || ''); setSub('medical'); }} />
             <Row icon="dumbbell" label="ציוד נגיש" sub2="התאמת אימונים לציוד שיש לך" onClick={() => setSub('equipment')} />
             <Row icon="sliders" label="המשקלים שלי" sub2={equipW.length ? equipW.map((w) => `${w.name} ${w.kg}`).join(' · ') : 'משקלי ציוד שמוזנים אוטומטית באימון'} onClick={() => setSub('weights')} />
-            <Row icon="timer" label="שיימר מנוחה" sub2={restTimer.on ? `קבוע - ${Math.floor(restTimer.sec / 60)}:${String(restTimer.sec % 60).padStart(2, '0')} בין סטים` : 'כבוי - מנוחה לפי התוכנית'} onClick={() => setSub('timer')} />
+            <Row icon="timer" label="טיימר מנוחה" sub2={restTimer.on ? `קבוע - ${Math.floor(restTimer.sec / 60)}:${String(restTimer.sec % 60).padStart(2, '0')} בין סטים` : 'כבוי - מנוחה לפי התוכנית'} onClick={() => setSub('timer')} />
         </Group>
+
+        <ReminderPreferences />
 
         <Card className="p-4">
             <h2 className="text-[16px] font-extrabold text-ink mb-3">מראה</h2>
@@ -350,7 +352,7 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
         </Group>
 
         <Card className="p-4 flex flex-col gap-3">
-            <strong className="text-[14px] text-ink">SwoleUp v7.0</strong>
+            <strong className="text-[14px] text-ink">SwoleUp v7.1</strong>
             <button className="text-[14px] text-acc text-right" onClick={checkUpdate}>בדוק עדכון</button>
             {updateMessage && <p className="text-[13px] text-muted">{updateMessage}</p>}
             {updateAvailable && <button className="text-acc" onClick={()=>location.reload()}>רענן לגרסה החדשה</button>}

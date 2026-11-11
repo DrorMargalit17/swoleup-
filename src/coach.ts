@@ -35,7 +35,7 @@ export async function geminiGenerate(settings: CoachSettings, body: unknown, onS
         for(let n=0;n<attempts;n++) {
             attempt++;
             let res:Response;
-            const payload=fastChat ? {...(body as object), generationConfig:{maxOutputTokens:4096,thinkingConfig:{thinkingLevel:model==='gemini-3.6-flash'||model==='gemini-3-flash-preview'?'MINIMAL':'LOW'}}} : body;
+            const payload=fastChat ? {...(body as object), generationConfig:{...((body as any).generationConfig||{}),maxOutputTokens:(body as any).generationConfig?.maxOutputTokens||4096,thinkingConfig:{thinkingLevel:model==='gemini-3.6-flash'||model==='gemini-3-flash-preview'?'MINIMAL':'LOW'}}} : body;
             const raw=JSON.stringify(payload);
             const details={model:GEMINI_FALLBACKS.includes(model)?model:'custom-model',phase:'headers',bytes:new TextEncoder().encode(raw).length};
             const started=Date.now();recordApi('request',attempt,started,undefined,details);

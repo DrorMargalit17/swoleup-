@@ -3,6 +3,7 @@
 // Structured output (responseJsonSchema) keeps the JSON contract reliable.
 import { Profile, FoodEntry, calorieTarget, proteinTarget } from './data';
 import { CoachSettings, geminiGenerate } from './coach';
+import {recordApi} from './apiDiagnostics';
 
 export interface MealSuggestion {
     id: string;
@@ -169,10 +170,8 @@ function requestMessage(profile: Profile, answers: MealAnswers, kcalLeft: number
 
 function extractMeals(text: string): MealSuggestion[] {
     const m = text.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error('no json');
-    const j = JSON.parse(m[0]);
-    const arr = Array.isArray(j) ? j : j.meals;
-    if (!Array.isArray(arr)) throw new Error('bad json');
+    let j;try{if(!m)throw Error();j=JSON.parse(m[0]);if(!Array.isArray(j?.meals)||!j.meals.every((r:unknown)=>r&&typeof r==='object'))throw Error()}catch{recordApi('response',0,Date.now(),undefined,{phase:'meal-json'});throw new Error('המודל החזיר ארוחות בפורמט שלא ניתן לקרוא. נסה שוב. קוד בדיקה: meal-json.')}
+    const arr = j.meals;
     return arr.slice(0, 3).map((r: Record<string, unknown>, i: number) => ({
         id: 'm' + Date.now().toString(36) + i,
         name: String(r.name || 'מנה ' + (i + 1)).slice(0, 80),
@@ -197,10 +196,11 @@ async function callGemini(settings: CoachSettings, text: string): Promise<string
             responseMimeType: 'application/json',
             responseJsonSchema: MEAL_SCHEMA,
             temperature: 0.9,
+            maxOutputTokens:8192,
         },
-    });
+    },undefined,true);
     const out = j.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('').trim();
-    if (!out) throw new Error('empty');
+    if (!out) throw new Error('המודל לא החזיר רעיונות לארוחה. נסה שוב. קוד בדיקה: empty.');
     return out;
 }
 
@@ -220,7 +220,7 @@ async function callOpenAI(settings: CoachSettings, text: string): Promise<string
     if (!res.ok) throw new Error(`OpenAI ${res.status}: בדוק את המפתח, הרשאות הספק והמכסה.`);
     const j = await res.json();
     const out = j.choices?.[0]?.message?.content?.trim();
-    if (!out) throw new Error('empty');
+    if (!out) throw new Error('המודל לא החזיר רעיונות לארוחה. נסה שוב. קוד בדיקה: empty.');
     return out;
 }
 
