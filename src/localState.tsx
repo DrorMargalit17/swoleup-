@@ -11,6 +11,7 @@ const emit = () => listeners.forEach(fn => fn());
 function setStatus(next: Saved) { status = next; emit(); }
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
 function persistBackup(key: string, value: unknown, preferBackup = false): Promise<void> {
+    if (key === "coachsettings.v1") return Promise.resolve();
     return new Promise((resolve, reject) => {
         if (!db) return reject(new Error('backup unavailable'));
         try {
@@ -57,8 +58,10 @@ const init = (async () => {
             };
             tx.oncomplete=()=>resolve(); tx.onerror=()=>reject(tx.error);
         });
+        // Migrate any old recovery key back to local storage before removing it.
+        if (localOK && localStorage.getItem('coachsettings.v1') !== null) { const tx=db.transaction('state','readwrite'); tx.objectStore('state').delete('coachsettings.v1'); }
         // Seed a recovery copy of existing data, without deleting or renaming keys.
-        if (localOK) for (const key of Object.keys(localStorage).filter(k=>k.endsWith('.v1'))) {
+        if (localOK) for (const key of Object.keys(localStorage).filter(k=>k.endsWith('.v1') && k !== 'coachsettings.v1')) {
             try { await persistBackup(key, fromLocal(key)); } catch {}
         }
     } catch {}
@@ -79,8 +82,8 @@ function write<T>(key:string,value:T) {
     emit();
     void init.then(async()=>{
         let savedBackup=false;
-        try { await persistBackup(key,value,!savedLocal); savedBackup=true; } catch {}
-        if (!savedLocal && !savedBackup) setStatus({ready:true,message:'לא הצלחנו לשמור את השינוי במכשיר. לפני הסגירה, ייצא גיבוי דרך ההגדרות.'});
+        try { if(key !== "coachsettings.v1") { await persistBackup(key,value,!savedLocal); savedBackup=true; } } catch {}
+        if (!savedLocal && !savedBackup) setStatus({ready:true,message:key === 'coachsettings.v1' ? 'המפתח לא נשמר במכשיר. הוא יעבוד רק עד סגירת האפליקציה, ואינו נכלל בגיבוי.' : 'לא הצלחנו לשמור את השינוי במכשיר. לפני הסגירה, ייצא גיבוי דרך ההגדרות.'});
         else if (status.message) setStatus({ready:true});
     });
 }

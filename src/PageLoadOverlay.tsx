@@ -1,5 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import logo from './photos/app-icon-180.png';
+import logo from './photos/app-icon-512.png';
 
 // Reports readiness of the currently visible screen's images and fonts.
 // It does not invent network percentages or wait for offscreen lazy images.
@@ -86,8 +86,7 @@ export function PageLoadOverlay({ route }: { route: string }) {
     }, [route]);
     return <div ref={host}>
         {load.visible && <div role="status" aria-label="טעינת העמוד" style={{ position: 'absolute', inset: 0, zIndex: 80, background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 18, padding: 24 }}>
-            <img src={logo} alt="SwoleUp" width={76} height={76} style={{ borderRadius: 22 }} />
-            <strong className="text-ink">SwoleUp</strong>
+            <img src={logo} alt="SwoleUp" width={152} height={152} style={{ borderRadius: 28 }} />
             <div role="progressbar" aria-valuenow={load.value} aria-valuemin={0} aria-valuemax={100} aria-label="התקדמות טעינה" style={{ width: 'min(240px,80%)', height: 6, borderRadius: 10, overflow: 'hidden', background: 'var(--card2)' }}>
                 <div style={{ height: '100%', width: `${load.value}%`, background: 'var(--lime)', transition: 'width .15s linear' }} />
             </div>

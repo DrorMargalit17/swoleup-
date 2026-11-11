@@ -38,7 +38,7 @@ export async function geminiGenerate(settings: CoachSettings, body: unknown): Pr
             body: JSON.stringify(body),
         });
         if (res.ok) return res.json();
-        const detail = await res.text().then((t) => t.slice(0, 200));
+        const detail = 'בדוק את המפתח, הרשאות הספק והמכסה.';
         lastErr = new Error(`Gemini ${res.status} (${model}): ${detail}`);
         if (!MODEL_RETRY_STATUSES.has(res.status)) throw lastErr;
     }
@@ -99,7 +99,7 @@ export async function askCoach(
                 ],
             }),
         });
-        if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text().then((t) => t.slice(0, 200))}`);
+        if (!res.ok) throw new Error(`OpenAI ${res.status}: בדוק את המפתח, הרשאות הספק והמכסה.`);
         const j = await res.json();
         return j.choices?.[0]?.message?.content?.trim() || 'לא קיבלתי תשובה, נסה שוב.';
     }

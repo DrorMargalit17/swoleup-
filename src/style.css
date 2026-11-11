@@ -274,7 +274,27 @@ input, textarea { scroll-margin-block:24px; }
    The status bar and home-indicator insets are each counted exactly once. */
 @media (display-mode:standalone) {
     html, body, #root { height:100%; }
-    .app:not(.onboarding-app) { height:100%; min-height:100%; }
+    .app:not(.onboarding-app) { position:fixed; inset:0; height:auto; min-height:0; }
     .app { padding-top:calc(env(safe-area-inset-top,0px) + 8px); }
     .tabbar { padding-bottom:calc(4px + env(safe-area-inset-bottom,0px)); }
 }
+
+/* Coach: full-width greeting and a bottom composer, with a scrollable chat. */
+.coach-content { display:flex; flex-direction:column; overflow:hidden; }
+.coach-panel { flex:1; min-height:0; flex-direction:column; }
+.coach-panel > .screen { overflow-y:auto; }
+.coach-panel > .coach-screen { flex:1; min-height:0; overflow:hidden; gap:16px; }
+.coach-screen > .chat { flex:1; min-height:0; overflow-y:auto; padding-bottom:8px; }
+.coach-head-icon { width:40px; height:40px; border-radius:14px; background:rgb(205 241 76 / .12); color:var(--acc); display:grid; place-items:center; flex-shrink:0; }
+.coach-welcome { width:100%; box-sizing:border-box; background:var(--card); border:1px solid var(--hair); border-radius:20px; padding:16px; }
+.coach-welcome-author { display:flex; gap:10px; align-items:center; font-size:14px; }
+.coach-welcome-author img { width:34px; height:34px; object-fit:cover; border-radius:50%; }
+.coach-welcome p { font-size:15px; line-height:1.65; margin:12px 0 16px; }
+.coach-prompts { display:flex; flex-direction:column; gap:8px; }
+.coach-prompts button { display:flex; align-items:center; justify-content:space-between; gap:10px; text-align:right; width:100%; min-height:44px; padding:10px 12px; border-radius:12px; background:var(--card2); border:1px solid var(--hair); color:var(--ink); font-size:13px; font-weight:600; line-height:1.45; }
+.coach-prompts button span { color:var(--acc); font-size:22px; }
+.coach-composer { display:flex; align-items:center; gap:10px; flex-shrink:0; padding-top:4px; }
+.coach-composer input { width:0; flex:1; min-width:0; }
+.coach-send { width:46px; height:46px; border-radius:50%; display:grid; place-items:center; flex-shrink:0; color:var(--lime-ink); background:var(--lime); }
+.coach-send:disabled { background:var(--card2); color:var(--ink2); border:1px solid var(--hair); }
+.coach-settings-button { background:var(--lime); color:var(--lime-ink); padding:12px 16px; border-radius:14px; font-weight:700; }

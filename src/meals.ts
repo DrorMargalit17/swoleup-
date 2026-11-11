@@ -217,7 +217,7 @@ async function callOpenAI(settings: CoachSettings, text: string): Promise<string
             ],
         }),
     });
-    if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text().then((t) => t.slice(0, 200))}`);
+    if (!res.ok) throw new Error(`OpenAI ${res.status}: בדוק את המפתח, הרשאות הספק והמכסה.`);
     const j = await res.json();
     const out = j.choices?.[0]?.message?.content?.trim();
     if (!out) throw new Error('empty');
@@ -274,7 +274,7 @@ export async function generateMealImage(
             generationConfig: { responseModalities: ['TEXT', 'IMAGE'] },
         }),
     });
-    if (!res.ok) throw new Error(`Gemini image ${res.status}: ${await res.text().then((t) => t.slice(0, 200))}`);
+    if (!res.ok) throw new Error(`Gemini image ${res.status}: בדוק את המפתח, הרשאות הספק והמכסה.`);
     const j = await res.json();
     const parts: { inlineData?: { mimeType?: string; data?: string }; text?: string }[] = j.candidates?.[0]?.content?.parts || [];
     const img = parts.find((p) => p.inlineData?.data);
@@ -325,7 +325,7 @@ export async function estimateFood(
                 ],
             }),
         });
-        if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text().then((t) => t.slice(0, 200))}`);
+        if (!res.ok) throw new Error(`OpenAI ${res.status}: בדוק את המפתח, הרשאות הספק והמכסה.`);
         const j = await res.json();
         return parseEstimate(j.choices?.[0]?.message?.content || '');
     }

@@ -7,6 +7,7 @@ import { Onboarding } from './onboarding';
 import { Workouts } from './screens/Workouts';
 import { Track } from './screens/Track';
 import { Coach } from './screens/Coach';
+import { Settings } from './screens/Settings';
 import { ProfileScreen } from './screens/Profile';
 import { Icon } from './ui';
 import { spring, easeOut } from './ds';
@@ -52,6 +53,7 @@ export function App() {
     const [profile, setProfile] = useStore<Profile | null>('profile.v1', null);
     const [plan, setPlan] = useStore<Plan | null>('plan.v1', null);
     const [tab, setTab] = useState<Tab>('workouts');
+    const [coachSettingsOpen, setCoachSettingsOpen] = useState(false);
     const [building, setBuilding] = useState(false);
     const [resetKey, setResetKey] = useState(0);
     // Dark navy is the SwoleUp identity (FitBuddy look) - default to dark regardless of OS setting.
@@ -96,7 +98,7 @@ export function App() {
     }
 
     return <div dir="rtl" lang="he" className={dark ? "app" : "app light"}>
-        {saveWarning}<main className="content">
+        {saveWarning}<main className={"content" + (tab === "coach" ? " coach-content" : "")}>
             {/* key-remount slide-in only: no AnimatePresence exit, so a stuck
                 exit animation can never freeze tab switching in the viewer iframe */}
             <motion.div key={tab} style={{ display: tab === 'coach' ? 'none' : 'block' }}
@@ -114,8 +116,8 @@ export function App() {
                         goCoach={() => setTab('coach')} />}
                 </motion.div>
             {/* Keep the request-owning chat mounted while another tab is visible. */}
-            <div style={{ display: tab === 'coach' ? 'block' : 'none' }} aria-hidden={tab !== 'coach'}>
-                <Coach profile={profile} plan={plan} active={tab === 'coach'} />
+            <div className="coach-panel" style={{ display: tab === 'coach' ? 'flex' : 'none' }} aria-hidden={tab !== 'coach'}>
+                {coachSettingsOpen ? <Settings onBack={() => setCoachSettingsOpen(false)} onRedoOnboarding={() => setProfile(null)} onReset={() => {setProfile(null);setPlan(null);}} /> : <Coach profile={profile} plan={plan} active={tab === 'coach'} onSettings={() => setCoachSettingsOpen(true)} />}
             </div>
         </main>
         <PageLoadOverlay route={tab} />

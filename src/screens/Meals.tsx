@@ -106,13 +106,7 @@ export function MealsFlow({ profile, onClose, openMeal }: { profile: Profile; on
                 <Card className="p-5 flex flex-col gap-3.5">
                     <h2 className="text-[17px] font-extrabold text-ink">צריך מפתח API פעם אחת</h2>
                     <p className="text-[14px] text-ink/90 leading-relaxed">רעיונות הארוחות רצים על אותו מפתח AI של המאמן האישי - ישירות מהטלפון שלך, בלי שרת באמצע. המפתח נשמר רק במכשיר.</p>
-                    <p className="text-[13px] text-muted leading-relaxed">המלצה: Google Gemini, יש מדריך חינמי. נכנסים ל-aistudio.google.com/apikey, יוצרים מפתח ומדביקים כאן.</p>
-                    <div className="flex gap-2">
-                        <Chip active={settings.provider === 'gemini'} onClick={() => setSettings({ ...settings, provider: 'gemini', model: GEMINI_MODEL })}>Gemini (חינם)</Chip>
-                        <Chip active={settings.provider === 'openai'} onClick={() => setSettings({ ...settings, provider: 'openai', model: 'gpt-4o-mini' })}>OpenAI</Chip>
-                    </div>
-                    <TextInput dir="ltr" type="password" autoComplete="off" placeholder="מדביקים כאן את המפתח" value={settings.apiKey}
-                        onChange={(e) => setSettings({ ...settings, apiKey: e.target.value.trim() })} />
+                    <p className="text-[14px] text-muted">להוספת מפתח: פרופיל ← הגדרות ← מפתח API.</p>
                 </Card>
             </motion.div>
         </div>;
