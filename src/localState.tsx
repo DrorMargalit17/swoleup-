@@ -10,12 +10,12 @@ let db: IDBDatabase | null = null;
 const emit = () => listeners.forEach(fn => fn());
 function setStatus(next: Saved) { status = next; emit(); }
 const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
-function persistBackup(key: string, value: unknown): Promise<void> {
+function persistBackup(key: string, value: unknown, preferBackup = false): Promise<void> {
     return new Promise((resolve, reject) => {
         if (!db) return reject(new Error('backup unavailable'));
         try {
             const tx = db.transaction('state', 'readwrite');
-            tx.objectStore('state').put(value, key);
+            tx.objectStore('state').put({format:'swoleup-state-v1',value,preferBackup}, key);
             tx.oncomplete = () => resolve();
             tx.onerror = tx.onabort = () => reject(tx.error);
         } catch (e) { reject(e); }
@@ -46,9 +46,12 @@ const init = (async () => {
                 const key=String(c.key);
                 if (!dirty.has(key)) {
                     let local; try { local=fromLocal(key); } catch {}
-                    const value=local === undefined ? c.value : local;
+                    const record=c.value;
+                    const wrapped=record?.format==='swoleup-state-v1';
+                    const recover=local === undefined || (wrapped && record.preferBackup);
+                    const value=recover ? (wrapped ? record.value : record) : local;
                     values.set(key,value);
-                    if (local === undefined && localOK) { try { localStorage.setItem(key,JSON.stringify(value)); } catch {} }
+                    if (recover && localOK) { try { localStorage.setItem(key,JSON.stringify(value)); } catch {} }
                 }
                 c.continue();
             };
@@ -76,7 +79,7 @@ function write<T>(key:string,value:T) {
     emit();
     void init.then(async()=>{
         let savedBackup=false;
-        try { await persistBackup(key,value); savedBackup=true; } catch {}
+        try { await persistBackup(key,value,!savedLocal); savedBackup=true; } catch {}
         if (!savedLocal && !savedBackup) setStatus({ready:true,message:'לא הצלחנו לשמור את השינוי במכשיר. לפני הסגירה, ייצא גיבוי דרך ההגדרות.'});
         else if (status.message) setStatus({ready:true});
     });
