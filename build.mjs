@@ -19,11 +19,11 @@ writeFileSync(D + '/index.html', `<!doctype html>
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://generativelanguage.googleapis.com https://api.openai.com; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' https://generativelanguage.googleapis.com https://api.openai.com https://swoleup-push.swoleup-dror17.workers.dev; worker-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SwoleUp</title>
-<meta name="swoleup-version" content="2026-11-11.12">
+<meta name="swoleup-version" content="2026-11-11.13">
 <meta name="description" content="SwoleUp - אימונים, תזונה ומעקב">
 <meta property="og:title" content="SwoleUp">
 <meta property="og:description" content="אימונים, תזונה ומעקב במקום אחד">
@@ -61,7 +61,7 @@ writeFileSync(D + '/manifest.webmanifest', JSON.stringify({
     { src: './icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }
   ]
 }, null, 2));
-writeFileSync(D + '/sw.js', `const CACHE = 'swoleup-v12';
+writeFileSync(D + '/sw.js', `const CACHE = 'swoleup-v13';
 const ASSETS = ['./', './index.html', './app.js', './app.css', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map(p => new Request(p, {cache:'reload'})))).then(() => self.skipWaiting()));
