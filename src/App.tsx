@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import {installPushListeners,syncPush} from './pushClient';
 import { motion, AnimatePresence } from './vendor/framer-motion.vendor.mjs';
 import { Profile, Plan, generatePlan } from './data';
 import { useStore } from './store';
@@ -61,6 +62,11 @@ export function App() {
     const prefersDark = useMemo(() => true, []);
     const [dark] = useStore<boolean>('dark.v1', prefersDark);
     const storage = useStorageStatus();
+    const [reminderPrefs] = useStore('reminders.v1',{sound:true,times:[]});
+    const [pushLogs] = useStore('logs.v1',[]);
+    const [pushSession] = useStore('session.v1',null);
+    useEffect(installPushListeners,[]);
+    useEffect(()=>{if(storage.ready)void syncPush()},[reminderPrefs,pushLogs,pushSession,storage.ready]);
     // Migrate older plans to the level-aware v2 generator.
     useEffect(() => {
         if (profile && (!plan || (plan as Plan).version !== 2)) setPlan(generatePlan(profile));
@@ -90,7 +96,7 @@ export function App() {
                     className="welcome-img" width={525} height={700} src={hero} alt="איור של משקולת ובקבוק מים" fetchPriority="high" decoding="async" />
                 <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ ...easeOut, delay: 0.2 }}
                     className="text-center text-[14.5px] text-muted leading-relaxed max-w-[300px] mx-auto">
-                    אפליקציית הכושר האישית שלך. בחינם, בלי פרסומות, והנתונים נשארים אצלך.
+                    אפליקציית הכושר האישית שלך. בחינם, בלי פרסומות, והנתונים האישיים נשמרים במכשיר. התראות מופעלות רק בהסכמה.
                 </motion.p>
                 <Onboarding key={resetKey} initial={profile || undefined} onDone={finishOnboarding} />
             </div>

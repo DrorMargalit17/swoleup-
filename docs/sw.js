@@ -14,3 +14,15 @@ self.addEventListener('fetch', (e) => {
     return res;
   }).catch(() => caches.match(e.request)));
 });
+
+self.addEventListener('push', e => {
+  let data={};try{data=e.data?.json()||{}}catch{}
+  const title=typeof data.title==='string'?data.title.slice(0,80):'SwoleUp';
+  const body=typeof data.body==='string'?data.body.slice(0,240):'עדכון חדש מ-SwoleUp';
+  // iOS requires every push to be user-visible, even if the app is open.
+  e.waitUntil(self.registration.showNotification(title,{body,tag:typeof data.tag==='string'?data.tag:'swoleup',icon:'./icon-192.png',badge:'./icon-192.png',dir:'rtl',lang:'he'}));
+});
+self.addEventListener('notificationclick',e=>{
+ e.notification.close();const url=new URL('./',self.location.href).href;
+ e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async windows=>{const found=windows.find(w=>w.url.startsWith(url));if(found)return found.focus();return clients.openWindow(url)}));
+});

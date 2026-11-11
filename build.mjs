@@ -78,5 +78,7 @@ self.addEventListener('fetch', (e) => {
   }).catch(() => caches.match(e.request)));
 });
 `);
+// Push handlers are appended without changing offline caching behavior.
+writeFileSync(D + '/sw.js', readFileSync(D + '/sw.js','utf8')+"\nself.addEventListener('push', e => {\n  let data={};try{data=e.data?.json()||{}}catch{}\n  const title=typeof data.title==='string'?data.title.slice(0,80):'SwoleUp';\n  const body=typeof data.body==='string'?data.body.slice(0,240):'\u05e2\u05d3\u05db\u05d5\u05df \u05d7\u05d3\u05e9 \u05de-SwoleUp';\n  // iOS requires every push to be user-visible, even if the app is open.\n  e.waitUntil(self.registration.showNotification(title,{body,tag:typeof data.tag==='string'?data.tag:'swoleup',icon:'./icon-192.png',badge:'./icon-192.png',dir:'rtl',lang:'he'}));\n});\nself.addEventListener('notificationclick',e=>{\n e.notification.close();const url=new URL('./',self.location.href).href;\n e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async windows=>{const found=windows.find(w=>w.url.startsWith(url));if(found)return found.focus();return clients.openWindow(url)}));\n});\n");
 writeFileSync(D + '/.nojekyll', '');
 console.log('Built docs/');

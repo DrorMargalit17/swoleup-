@@ -1,0 +1,19 @@
+{
+  "name": "swoleup-push",
+  "version": "1.0.0",
+  "description": "Personal free-plan Web Push scheduler for SwoleUp",
+  "scripts": {
+    "test": "node test.mjs",
+    "check": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "test:runtime": "node test-runtime.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "dependencies": {
+    "@block65/webcrypto-web-push": "2.0.0",
+    "wrangler": "4.160.1"
+  },
+  "private": true,
+  "type": "module"
+}

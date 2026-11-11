@@ -1,0 +1,56 @@
+// Push integration contains no AI key, profile, chat or exercise detail.
+// Only a per-device capability is kept locally, outside backups and IndexedDB.
+import {PUSH_ENDPOINT} from './pushConfig';
+const TOKEN='swoleup.push.token',ENABLED='swoleup.push.enabled',REV='swoleup.push.revision';
+let running=false,rest=0,queue=Promise.resolve();
+let message='';
+const emit=()=>window.dispatchEvent(new Event('swoleup-push-status'));
+export const pushStatus=()=>({enabled:localStorage.getItem(ENABLED)==='yes',message,configured:!!PUSH_ENDPOINT});
+export function setPushWorkout(active:boolean,restAt=0){running=active;rest=restAt;void syncPush();}
+function read(key:string,fallback:any){try{return JSON.parse(localStorage.getItem(key)||'null')??fallback}catch{return fallback}}
+function token(){let value=localStorage.getItem(TOKEN);if(!value){value=btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=/g,'');localStorage.setItem(TOKEN,value)}return value}
+function snapshot(){
+ const now=new Date(),day=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+ const prefs=read('reminders.v1',{times:[]}),logs=read('logs.v1',[]),session=read('session.v1',null);
+ const active=running||!!(session?.savedAt&&Date.now()-new Date(session.savedAt).getTime()<6*36e5);
+ const previous=Number(localStorage.getItem(REV)||0),revision=Math.max(Date.now(),previous+1);localStorage.setItem(REV,String(revision));
+ return {times:prefs.times||[],timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,completedDay:logs.some((l:any)=>l.date===day)?day:null,active,restAt:running&&document.visibilityState==='hidden'&&rest>Date.now()?rest:null,revision};
+}
+async function request(path:string,method:string,body?:any){
+ const response=await fetch(PUSH_ENDPOINT+path,{method,headers:{Authorization:'Bearer '+token(),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,keepalive:true,signal:AbortSignal.timeout(7000)});
+ if(!response.ok)throw Error(response.status===410?'expired':response.status===429?'limit':'network');return response;
+}
+export async function syncPush(subscription?:PushSubscriptionJSON){
+ if(!PUSH_ENDPOINT||localStorage.getItem(ENABLED)!=='yes')return;
+ const state={...snapshot(),...(subscription?{subscription}:{})};
+ queue=queue.catch(()=>{}).then(async()=>{
+  if(localStorage.getItem(ENABLED)!=='yes')return;
+  try{await request('/state','PUT',state);message='סונכרן עם שירות ההתראות.';}catch(e){message=(e as Error).message==='limit'?'שירות ההתראות הגיע למגבלה זמנית. נסה שוב מאוחר יותר.':'הסנכרון לא הושלם. ייתכן שתזכורות לא יישלחו או שלא יבוטלו עד לחיבור מחדש.';}
+  emit();
+ });
+ await queue;
+}
+export async function enablePush(){
+ if(!PUSH_ENDPOINT)throw Error('שירות ההתראות עדיין לא הוגדר.');
+ if(!('Notification'in window)||!('PushManager'in window)||!('serviceWorker'in navigator))throw Error('התראות אינן זמינות כאן. ב-iPhone יש לפתוח את SwoleUp מהאייקון במסך הבית.');
+ // Ask immediately in the click gesture, before any network request.
+ const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('ההרשאה לא ניתנה. אפשר לאפשר התראות בהגדרות המכשיר.');
+ const response=await fetch(PUSH_ENDPOINT+'/config',{signal:AbortSignal.timeout(7000)});if(!response.ok)throw Error('שירות ההתראות לא זמין כרגע.');
+ const {publicKey}=await response.json();if(typeof publicKey!=='string')throw Error('הגדרת ההתראות חסרה.');
+ const bytes=Uint8Array.from(atob(publicKey.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+ const reg=await navigator.serviceWorker.ready;const subscription=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes});
+ await request('/state','PUT',{...snapshot(),subscription:subscription.toJSON()});localStorage.setItem(ENABLED,'yes');message='סונכרן עם שירות ההתראות.';emit();
+}
+export async function disablePush(){
+ // Delete server schedule first. If offline, keep an honest enabled state so retry is available.
+ if(PUSH_ENDPOINT&&localStorage.getItem(ENABLED)==='yes')try{await request('/state','DELETE')}catch{throw Error('ההתראות עדיין לא כובו: אין אישור מחיקה מהשרת. התחבר לאינטרנט ונסה שוב.')} 
+ const reg=await navigator.serviceWorker.ready;const sub=await reg.pushManager.getSubscription();await sub?.unsubscribe();
+ localStorage.removeItem(ENABLED);localStorage.removeItem(TOKEN);localStorage.removeItem(REV);message='ההתראות כובו והמועדים נמחקו מהשרת.';emit();
+}
+export async function testPush(){await request('/test','POST');message='הודעת בדיקה נשלחה לשירות Push. הופעתה במכשיר תלויה בהרשאות ובמצב המכשיר.';emit();}
+export function installPushListeners(){
+ const sync=()=>{void syncPush()};
+ window.addEventListener('online',sync);document.addEventListener('visibilitychange',sync);window.addEventListener('pagehide',sync);
+ if(localStorage.getItem(ENABLED)==='yes'&&'serviceWorker'in navigator)void navigator.serviceWorker.ready.then(r=>r.pushManager.getSubscription()).then(s=>{if(s)void syncPush(s.toJSON());else{message='הרישום להתראות פג. הפעל התראות מחדש.';emit()}}).catch(()=>{});
+ return()=>{window.removeEventListener('online',sync);document.removeEventListener('visibilitychange',sync);window.removeEventListener('pagehide',sync)};
+}

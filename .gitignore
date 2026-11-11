@@ -2,3 +2,7 @@ node_modules/
 .env
 .env.*
 *.log
+
+.wrangler/
+push-server/.dev.vars
+push-server/.dev.vars.*

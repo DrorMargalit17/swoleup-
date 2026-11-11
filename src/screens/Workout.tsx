@@ -2,6 +2,7 @@
 // (add/remove sets, per-set reps, tap-to-edit weight auto-filled from settings),
 // free navigation between exercises with data preserved, pause/resume, rest
 // timer with ±15s, end-workout rating slider + feedback sheet.
+import {setPushWorkout} from '../pushClient';
 import { unlockRestAudio, playRestChime } from '../restSound';
 import { DEFAULT_REMINDERS, ReminderPreferencesValue } from '../ReminderPreferences';
 import React, { useEffect, useState } from 'react';
@@ -77,6 +78,8 @@ export function Workout({ day, prefill, resume, onFinish, onCancel, onPause }: P
     const doneSets = exs.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0);
     const allDone = doneSets === totalSets && totalSets > 0;
     const workoutClock = fmtClock(Math.max(0, Math.floor((now - started) / 1000)));
+    useEffect(()=>{setPushWorkout(true,phase==='rest'?restEnd:0)},[phase,restEnd]);
+    useEffect(()=>()=>setPushWorkout(false),[]);
     const restLeft = Math.max(0, Math.ceil((restEnd - now) / 1000));
 
     const firstUndoneSet = (exIdx: number): number => {
@@ -102,11 +105,11 @@ export function Workout({ day, prefill, resume, onFinish, onCancel, onPause }: P
     };
 
     useEffect(() => {
-        if (phase === 'rest' && restLeft <= 0) {
+        if (phase === 'rest' && restLeft <= 0 && document.visibilityState==='visible') {
             if(sounded.current!==restEnd){sounded.current=restEnd;if(reminders.sound&&Date.now()-restEnd<10000)playRestChime();if(document.visibilityState==='visible')try{navigator.vibrate?.([150,80,150])}catch{}}
             advance();
         }
-    }, [phase, restLeft]);
+    }, [phase, restLeft,document.visibilityState]);
 
     const patchSet = (exIdx: number, setIdx: number, patch: Partial<{ kg: number; reps: number; done: boolean }>) => {
         setExs((prev) => prev.map((ex, i) => i === exIdx ? { ...ex, sets: ex.sets.map((s, j) => j === setIdx ? { ...s, ...patch } : s) } : ex));
