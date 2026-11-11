@@ -1,35 +1,94 @@
-// Standalone shim for @instinct/files: shared localStorage-backed store + passthrough router.
-// All hook instances with the same key share one value (module-level cache + listeners),
-// matching the platform's useLocalState semantics.
-import React, { useState, useEffect } from 'react';
-type Listener = () => void;
-const cache = new Map<string, unknown>();
-const listeners = new Map<string, Set<Listener>>();
-function readKey<T>(key: string, initial: T): T {
-    if (cache.has(key)) return cache.get(key) as T;
-    let v = initial;
-    try { const raw = localStorage.getItem(key); if (raw !== null) v = JSON.parse(raw); } catch {}
-    cache.set(key, v);
-    return v;
+// Device-local shared store. Legacy key names are preserved for existing users.
+import React, { useSyncExternalStore } from 'react';
+type Saved = { ready: boolean; message?: string };
+const values = new Map<string, unknown>();
+const listeners = new Set<() => void>();
+const dirty = new Set<string>();
+let status: Saved = { ready: false };
+let localOK = true;
+let db: IDBDatabase | null = null;
+const emit = () => listeners.forEach(fn => fn());
+function setStatus(next: Saved) { status = next; emit(); }
+const subscribe = (fn: () => void) => { listeners.add(fn); return () => { listeners.delete(fn); }; };
+function persistBackup(key: string, value: unknown): Promise<void> {
+    return new Promise((resolve, reject) => {
+        if (!db) return reject(new Error('backup unavailable'));
+        try {
+            const tx = db.transaction('state', 'readwrite');
+            tx.objectStore('state').put(value, key);
+            tx.oncomplete = () => resolve();
+            tx.onerror = tx.onabort = () => reject(tx.error);
+        } catch (e) { reject(e); }
+    });
 }
-function writeKey<T>(key: string, v: T) {
-    cache.set(key, v);
-    try { localStorage.setItem(key, JSON.stringify(v)); } catch {}
-    (listeners.get(key) || []).forEach((fn) => fn());
+function fromLocal(key: string): unknown {
+    const raw = localStorage.getItem(key);
+    return raw === null ? undefined : JSON.parse(raw);
 }
-export function useLocalState<T>(key: string, initial: T): [T, (v: T | ((p: T) => T)) => void] {
-    const [val, setVal] = useState<T>(() => readKey(key, initial));
-    useEffect(() => {
-        const fn = () => setVal(readKey(key, initial));
-        if (!listeners.has(key)) listeners.set(key, new Set());
-        listeners.get(key)!.add(fn);
-        return () => { listeners.get(key)!.delete(fn); };
-    }, [key]);
-    const set = (v: T | ((p: T) => T)) => {
-        const next = typeof v === 'function' ? (v as (p: T) => T)(readKey(key, initial)) : v;
-        writeKey(key, next);
-    };
-    return [val, set];
+const init = (async () => {
+    try { localStorage.setItem('__swoleup_probe', '1'); localStorage.removeItem('__swoleup_probe'); }
+    catch { localOK = false; }
+    try {
+        db = await new Promise<IDBDatabase>((resolve,reject) => {
+            const r = indexedDB.open('swoleup-local', 1);
+            r.onupgradeneeded = () => r.result.createObjectStore('state');
+            r.onsuccess = () => resolve(r.result);
+            r.onerror = () => reject(r.error);
+            r.onblocked = () => reject(new Error('blocked'));
+            setTimeout(() => reject(new Error('timeout')), 2000);
+        });
+        await new Promise<void>((resolve,reject) => {
+            const tx = db!.transaction('state','readonly');
+            const cursor = tx.objectStore('state').openCursor();
+            cursor.onsuccess = () => {
+                const c=cursor.result;
+                if (!c) return;
+                const key=String(c.key);
+                if (!dirty.has(key)) {
+                    let local; try { local=fromLocal(key); } catch {}
+                    const value=local === undefined ? c.value : local;
+                    values.set(key,value);
+                    if (local === undefined && localOK) { try { localStorage.setItem(key,JSON.stringify(value)); } catch {} }
+                }
+                c.continue();
+            };
+            tx.oncomplete=()=>resolve(); tx.onerror=()=>reject(tx.error);
+        });
+        // Seed a recovery copy of existing data, without deleting or renaming keys.
+        if (localOK) for (const key of Object.keys(localStorage).filter(k=>k.endsWith('.v1'))) {
+            try { await persistBackup(key, fromLocal(key)); } catch {}
+        }
+    } catch {}
+    setStatus({ready:true, ...(!localOK && !db ? {message:'השמירה במכשיר חסומה. הנתונים יישארו רק עד סגירת האפליקציה. אפשר לייצא גיבוי בהגדרות.'} : {})});
+})();
+function read<T>(key: string, initial: T): T {
+    if (!values.has(key)) {
+        let value=initial;
+        try { const stored=fromLocal(key); if(stored!==undefined) value=stored as T; } catch {}
+        values.set(key,value);
+    }
+    return values.get(key) as T;
 }
-export function FileRouter({ children }: { children?: React.ReactNode }) { return <>{children}</>; }
-export default { useLocalState, FileRouter };
+function write<T>(key:string,value:T) {
+    dirty.add(key); values.set(key,value);
+    let savedLocal=false;
+    try { const raw=JSON.stringify(value);localStorage.setItem(key,raw);savedLocal=localStorage.getItem(key)===raw; } catch {}
+    emit();
+    void init.then(async()=>{
+        let savedBackup=false;
+        try { await persistBackup(key,value); savedBackup=true; } catch {}
+        if (!savedLocal && !savedBackup) setStatus({ready:true,message:'לא הצלחנו לשמור את השינוי במכשיר. לפני הסגירה, ייצא גיבוי דרך ההגדרות.'});
+        else if (status.message) setStatus({ready:true});
+    });
+}
+window.addEventListener('storage',e=>{
+    if(!e.key || !e.key.endsWith('.v1')) return;
+    try { values.set(e.key,e.newValue===null?undefined:JSON.parse(e.newValue));emit(); } catch {}
+});
+export function useStorageStatus() { return useSyncExternalStore(subscribe,()=>status); }
+export function useLocalState<T>(key:string,initial:T): [T,(v:T|((p:T)=>T))=>void,Saved] {
+    const value=useSyncExternalStore(subscribe,()=>read(key,initial));
+    const saved=useStorageStatus();
+    return [value,v=>write(key,typeof v==='function'?(v as (p:T)=>T)(read(key,initial)):v),saved];
+}
+export function FileRouter({children}:{children?:React.ReactNode}) { return <>{children}</>; }

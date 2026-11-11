@@ -152,7 +152,7 @@ export function Sheet({ open, onClose, children, title }: { open: boolean; onClo
                             <div className="w-10 h-1.5 rounded-full bg-hairline" />
                         </div>
                         {title && <div className="px-5 pb-2 text-[17px] font-extrabold text-ink shrink-0">{title}</div>}
-                        <div className="overflow-y-auto overscroll-contain px-5 pb-6 grow">{children}</div>
+                        <div className="sheet-body overflow-y-auto overscroll-contain px-5 pb-6 grow">{children}</div>
                     </motion.div>
                 </motion.div>
             )}

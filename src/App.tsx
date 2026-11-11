@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from './vendor/framer-motion.vendor.mjs';
 import { Profile, Plan, generatePlan } from './data';
 import { useStore } from './store';
+import { useStorageStatus } from './localState';
 import { Onboarding } from './onboarding';
 import { Workouts } from './screens/Workouts';
 import { Track } from './screens/Track';
@@ -56,23 +57,29 @@ export function App() {
     // Dark navy is the SwoleUp identity (FitBuddy look) - default to dark regardless of OS setting.
     const prefersDark = useMemo(() => true, []);
     const [dark] = useStore<boolean>('dark.v1', prefersDark);
-    // The hosted viewer sizes our iframe once from the initial content height and it can
-    // exceed the visible screen, so position:fixed never reaches the phone's actual bottom.
-    // Instead the app locks itself to a shell height that fits within the visible area and
-    // scrolls its content internally; the tab bar is then a normal footer, always on screen.
+    const storage = useStorageStatus();
     useEffect(() => {
         const apply = () => {
-            // The viewer's own header (~202px on phones) eats the top of the screen while our
-            // iframe is ~viewport tall, so the last ~178px sits below the fold. Shrink the
-            // shell by exactly that on narrow (phone) layouts; desktop viewer header is tiny.
-            const mobileChrome = window.self !== window.top && window.innerWidth < 600 ? 178 : 0;
-            const h = Math.max(420, window.innerHeight - mobileChrome);
-            document.documentElement.style.setProperty('--shell-h', h + 'px');
+            const vv = window.visualViewport;
+            const h = vv?.height || window.innerHeight;
+            document.documentElement.style.setProperty('--app-height', h + 'px');
+            document.documentElement.style.setProperty('--app-top', (vv?.offsetTop || 0) + 'px');
+            const typing = /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '');
+            document.documentElement.classList.toggle('keyboard-open', typing && window.innerHeight-h>120);
         };
         apply();
         window.addEventListener('resize', apply);
-        const t = setInterval(apply, 1500);
-        return () => { window.removeEventListener('resize', apply); clearInterval(t); };
+        window.visualViewport?.addEventListener('resize', apply);
+        window.visualViewport?.addEventListener('scroll', apply);
+        document.addEventListener('focusin', apply);
+        document.addEventListener('focusout', apply);
+        return () => {
+            window.removeEventListener('resize', apply);
+            window.visualViewport?.removeEventListener('resize', apply);
+            window.visualViewport?.removeEventListener('scroll', apply);
+            document.removeEventListener('focusin', apply);
+            document.removeEventListener('focusout', apply);
+        };
     }, []);
 
     // Migrate older plans to the level-aware v2 generator.
@@ -88,11 +95,13 @@ export function App() {
         setTimeout(() => { setBuilding(false); setTab('workouts'); }, 3000);
     };
 
+    if (!storage.ready) return <div className="app storage-loading" role="status">טוען את הנתונים השמורים…</div>;
+    const saveWarning = storage.message && <div role="alert" className="storage-warning">{storage.message}</div>;
     if (building) return <div dir="rtl" lang="he" className={dark ? "app" : "app light"}><Building /></div>;
 
     if (!profile || !plan) {
         return <div dir="rtl" lang="he" className={dark ? "app" : "app light"}>
-            <div className="content">
+            {saveWarning}<div className="content">
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={easeOut}
                     className="text-[30px] font-extrabold text-ink text-center tracking-tight">
                     Swole<span className="text-acc">Up</span>
@@ -111,7 +120,7 @@ export function App() {
     }
 
     return <div dir="rtl" lang="he" className={dark ? "app" : "app light"}>
-        <main className="content">
+        {saveWarning}<main className="content">
             {/* key-remount slide-in only: no AnimatePresence exit, so a stuck
                 exit animation can never freeze tab switching in the viewer iframe */}
             <motion.div key={tab} style={{ display: tab === 'coach' ? 'none' : 'block' }}

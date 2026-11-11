@@ -1,8 +1,4 @@
-// Device-local persistence through the hosted viewer's useLocalState (the app
-// iframe is sandboxed, so raw localStorage/IndexedDB are unavailable).
-import { useEffect, useState } from 'react';
 import { useLocalState } from './localState';
-
 export interface SavedState { ready: boolean; message?: string }
 
 const KEY_LIMIT = 15000; // chars, stays under the 16 KiB per-value cap
@@ -14,35 +10,9 @@ function fit<T>(value: T, trim: (v: T) => T): T {
     return v;
 }
 
-// useLocalState is per-component: writes from one screen never reach another.
-// This module-level mirror + subscribers make every hook on the same key live.
-const mem = new Map<string, unknown>();
-const subs = new Map<string, Set<() => void>>();
-
+// The standalone store owns synchronization, persistence and recovery.
 export function useStore<T>(key: string, fallback: T): [T, (v: T) => void, SavedState] {
-    const [v, setV, saved] = useLocalState(key, fallback);
-    const [, force] = useState(0);
-    useEffect(() => {
-        const sub = () => force((x) => x + 1);
-        let set = subs.get(key);
-        if (!set) { set = new Set(); subs.set(key, set); }
-        set.add(sub);
-        return () => { set.delete(sub); };
-    }, [key]);
-    const ready = (saved as SavedState | undefined)?.ready !== false;
-    let val: T;
-    if (mem.has(key)) {
-        val = mem.get(key) as T;
-    } else {
-        val = (v === undefined || v === null ? fallback : v) as T;
-        if (ready) mem.set(key, val);
-    }
-    const set = (next: T) => {
-        mem.set(key, next);
-        try { setV(next); } catch { /* viewer rejects oversized values */ }
-        subs.get(key)?.forEach((cb) => cb());
-    };
-    return [val, set, saved as SavedState];
+    return useLocalState(key, fallback);
 }
 
 // Caps so values stay within viewer limits over months of use.
