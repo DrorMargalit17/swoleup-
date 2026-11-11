@@ -18,6 +18,7 @@ export function Coach({ profile, plan, active = true, onSettings }: { profile: P
     const [weights] = useStore<WeightEntry[]>('weights.v1', []);
     const [input, setInput] = useState('');
     const [busy, setBusy] = useState(false);
+    const [retryStatus, setRetryStatus] = useState('');
     const [error, setError] = useState('');
     const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -31,17 +32,17 @@ export function Coach({ profile, plan, active = true, onSettings }: { profile: P
     const send = async (q: string) => {
         const question = q.trim();
         if (!question || busy) return;
-        setInput(''); setError('');
+        setInput(''); setError(''); setRetryStatus('');
         const next: CoachMsg[] = [...msgs, { role: 'user', text: question, ts: Date.now() }];
         setMsgs(capMsgs(next));
         setBusy(true);
         try {
-            const answer = await askCoach(settings, profile, plan, logs, weights, next.slice(0, -1), question);
+            const answer = await askCoach(settings, profile, plan, logs, weights, next.slice(0, -1), question, setRetryStatus);
             setMsgs(capMsgs([...next, { role: 'coach', text: answer, ts: Date.now() }]));
         } catch (e) {
             setError(e instanceof Error ? e.message : 'שגיאה לא צפויה. בדוק את המפתח והחיבור.');
         } finally {
-            setBusy(false);
+            setBusy(false); setRetryStatus('');
         }
     };
 
@@ -101,6 +102,7 @@ export function Coach({ profile, plan, active = true, onSettings }: { profile: P
                     ))}
                 </div>
             </div>}
+            {busy && retryStatus && <p role="status" className="text-[13px] text-muted">{retryStatus}</p>}
             {error && <div className="bg-danger/10 border border-danger/30 rounded-xl px-4 py-3 text-[13px] text-danger">{error}</div>}
             <div ref={bottomRef} />
         </div>

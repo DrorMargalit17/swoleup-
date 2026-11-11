@@ -23,26 +23,40 @@ export function geminiModelOf(s: CoachSettings): string {
 
 export interface GeminiResponse { candidates?: { content?: { parts?: { text?: string }[] } }[] }
 
-// Statuses that justify trying the next model: bad/unknown model (400), not
-// enabled for the project (403), not found (404), per-model quota out (429).
-const MODEL_RETRY_STATUSES = new Set([400, 403, 404, 429]);
-
-export async function geminiGenerate(settings: CoachSettings, body: unknown): Promise<GeminiResponse> {
-    const tried = [...new Set([geminiModelOf(settings), ...GEMINI_FALLBACKS])];
-    let lastErr: Error = new Error('no model');
-    for (const model of tried) {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-goog-api-key': settings.apiKey },
-            body: JSON.stringify(body),
-        });
-        if (res.ok) return res.json();
-        const detail = 'בדוק את המפתח, הרשאות הספק והמכסה.';
-        lastErr = new Error(`Gemini ${res.status} (${model}): ${detail}`);
-        if (!MODEL_RETRY_STATUSES.has(res.status)) throw lastErr;
+// Bounded retries for transient provider failures. Never retry bad credentials.
+const TRANSIENT_STATUSES = new Set([408,429,500,502,503,504]);
+export async function geminiGenerate(settings: CoachSettings, body: unknown, onStatus?: (message:string)=>void): Promise<GeminiResponse> {
+    const models=[...new Set([geminiModelOf(settings), ...GEMINI_FALLBACKS])];
+    let lastStatus=503, attempt=0;
+    for(let i=0;i<models.length;i++) {
+        const model=models[i];
+        const attempts=i===0?2:1;
+        for(let n=0;n<attempts;n++) {
+            attempt++;
+            let res:Response;
+            try {
+                res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+                    method:'POST', headers:{'Content-Type':'application/json','x-goog-api-key':settings.apiKey}, body:JSON.stringify(body), signal:AbortSignal.timeout(25000),
+                });
+            } catch {
+                throw new Error('לא הצלחנו להתחבר לגוגל. בדוק את החיבור ונסה שוב בעוד רגע.');
+            }
+            if(res.ok){onStatus?.('');return res.json()}
+            lastStatus=res.status;
+            if(res.status===400||res.status===401||res.status===403) throw new Error('גוגל דחתה את הבקשה. בדוק את המפתח, הרשאות ה-API והמודל בהגדרות.');
+            if(res.status===404) break; // Only the missing model justifies immediate fallback.
+            if(!TRANSIENT_STATUSES.has(res.status))throw new Error('לא התקבלה תשובה מגוגל. נסה שוב בעוד רגע.');
+            const hasNext=n+1<attempts||i+1<models.length;
+            if(!hasNext)break;
+            const header=res.headers.get('Retry-After');
+            const seconds=header ? Number(header) : NaN;
+            const retryAfter=header ? (Number.isFinite(seconds)?seconds*1000:Date.parse(header)-Date.now()) : 0;
+            if(retryAfter>30000)throw new Error(res.status===429?'הגעת כרגע למגבלת הבקשות של גוגל. נסה שוב מאוחר יותר; אין צורך להחליף מפתח.':'השרתים של גוגל עמוסים. נסה שוב בעוד רגע.');
+            onStatus?.(res.status===429?'גוגל מגבילה כרגע את קצב הבקשות, מנסה שוב…':'השרתים של גוגל עמוסים, מנסה שוב…');
+            await new Promise(r=>setTimeout(r,Math.max(retryAfter||0,Math.min(4000,1000*2**(attempt-1)))+Math.floor(Math.random()*250)));
+        }
     }
-    throw lastErr;
+    throw new Error(lastStatus===429?'הגעת כרגע למגבלת הבקשות של גוגל. נסה שוב מאוחר יותר; אין צורך להחליף מפתח.':lastStatus===404?'המודל לא זמין כרגע. בדוק את בחירת המודל בהגדרות.':'השרתים של גוגל עמוסים כרגע. נסה שוב בעוד רגע; זו לא בהכרח בעיה במפתח.');
 }
 
 function systemPrompt(profile: Profile, plan: Plan | null, logs: WorkoutLog[], weights: WeightEntry[]): string {
@@ -84,6 +98,7 @@ export async function askCoach(
     weights: WeightEntry[],
     history: CoachMsg[],
     question: string,
+    onStatus?: (message:string)=>void,
 ): Promise<string> {
     const sys = systemPrompt(profile, plan, logs, weights);
     if (settings.provider === 'openai') {
@@ -109,7 +124,7 @@ export async function askCoach(
             ...history.slice(-10).map((m) => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })),
             { role: 'user', parts: [{ text: question }] },
         ],
-    });
+    }, onStatus);
     const text = j.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('').trim();
     return text || 'לא קיבלתי תשובה, נסה שוב.';
 }

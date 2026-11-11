@@ -34,7 +34,7 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
         const probe=document.createElement('div');probe.style.cssText='position:fixed;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';document.body.appendChild(probe);const ps=getComputedStyle(probe);const safe=[ps.paddingTop,ps.paddingBottom];probe.remove();
         const units:Record<string,number>={}; for(const unit of ['vh','lvh','dvh','svh']) {const el=document.createElement('div');el.style.cssText='position:absolute;visibility:hidden;height:100'+unit;document.body.appendChild(el);units[unit]=el.getBoundingClientRect().height;el.remove();}
         const rect=(el:HTMLElement)=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};
-        setDisplayInfo(JSON.stringify({version:'6.6',screen:[screen.width,screen.height],inner:[innerWidth,innerHeight],outer:[outerWidth,outerHeight],dpr:devicePixelRatio,units,visual:window.visualViewport?{height:visualViewport!.height,top:visualViewport!.offsetTop,scale:visualViewport!.scale}:null,safe,standalone:matchMedia('(display-mode:standalone)').matches,app:rect(app),nav:rect(nav),navPadding:getComputedStyle(nav).paddingBottom,root:rect(document.querySelector('#root') as HTMLElement)},null,0).replace(/,"(?=[a-zA-Z])/g,',\n"'));
+        setDisplayInfo(JSON.stringify({version:'6.7',screen:[screen.width,screen.height],inner:[innerWidth,innerHeight],outer:[outerWidth,outerHeight],dpr:devicePixelRatio,units,visual:window.visualViewport?{height:visualViewport!.height,top:visualViewport!.offsetTop,scale:visualViewport!.scale}:null,safe,standalone:matchMedia('(display-mode:standalone)').matches,app:rect(app),nav:rect(nav),navPadding:getComputedStyle(nav).paddingBottom,root:rect(document.querySelector('#root') as HTMLElement)},null,0).replace(/,"(?=[a-zA-Z])/g,',\n"'));
     };
     const [dark, setDark] = useStore<boolean>('dark.v1', true);
     const [sub, setSub] = useState<Sub>('main');
@@ -346,7 +346,7 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
         </Group>
 
         <Card className="p-4 flex flex-col gap-3">
-            <strong className="text-[14px] text-ink">SwoleUp v6.6</strong>
+            <strong className="text-[14px] text-ink">SwoleUp v6.7</strong>
             <button className="text-[14px] text-acc text-right" onClick={checkUpdate}>בדוק עדכון</button>
             {updateMessage && <p className="text-[13px] text-muted">{updateMessage}</p>}
             {updateAvailable && <button className="text-acc" onClick={()=>location.reload()}>רענן לגרסה החדשה</button>}
