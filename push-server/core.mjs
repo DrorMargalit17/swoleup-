@@ -44,8 +44,9 @@ export class PushSchedule {
    if(now-(old.testAt||0)<60000)return Response.json({error:'wait_one_minute'},{status:429});
    old.testAt=now;await this.save(data);
    const result=await this.send(old,{title:'SwoleUp',body:'ההתראות מוכנות. נתראה באימון הבא!',tag:'swoleup-test'},60);
+   old.lastPush={...old.lastPush,time:new Date().toISOString()};await this.save(data);
    if(result==='expired'){delete data[id];await this.save(data);return Response.json({error:'subscription_expired'},{status:410});}
-   return Response.json({ok:result==='sent'},{status:result==='sent'?200:502});
+   return Response.json({ok:result==='sent',code:old.lastPush?.code||result,pushStatus:old.lastPush?.status||0,phase:old.lastPush?.phase||'send'},{status:result==='sent'?200:502});
   }
   if(request.method!=='PUT'||path!=='/state')return Response.json({error:'not_found'},{status:404});
   let body;try{body=await request.json()}catch{return Response.json({error:'invalid_json'},{status:400})}
@@ -66,11 +67,16 @@ export class PushSchedule {
   if(Number.isFinite(at))await this.ctx.storage.setAlarm(Math.max(Date.now()+100,at));else await this.ctx.storage.deleteAlarm();
  }
  async send(record,message,ttl){
+  let phase='encrypt';
   try{
    const payload=await buildPushPayload({data:message,options:{ttl,urgency:'high',topic:message.tag} },record.subscription,{subject:APP,publicKey:this.env.VAPID_PUBLIC_KEY,privateKey:this.env.VAPID_PRIVATE_KEY});
+   phase='provider';
    const res=await fetch(record.subscription.endpoint,{...payload,redirect:'error',signal:AbortSignal.timeout(4000)});
+   let reason='';if(!res.ok){try{const j=await res.json();const allowed=['BadJwtToken','BadTtl','BadUrgency','BadWebPushTopic','BadWebPushRequest','BadAuthorizationHeader','BadCryptoKey','BadEncryption','BadRegistration','BadTopic','DeviceTokenNotForTopic','ExpiredProviderToken','Forbidden','InvalidProviderToken','MissingProviderToken','PayloadTooLarge','Unregistered'];if(allowed.includes(j.reason))reason=j.reason;}catch{}}
+   record.lastPush={phase,status:res.status,code:res.ok?'accepted':reason||'provider_rejected'};
+   console.log(JSON.stringify({push:record.lastPush}));
    if(res.status===404||res.status===410)return 'expired';return res.ok?'sent':'failed';
-  }catch{return 'failed';}
+  }catch(e){record.lastPush={phase,status:0,code:e?.name==='TimeoutError'||e?.name==='AbortError'?'send_timeout':phase==='encrypt'?'encryption_failed':'provider_network'};console.log(JSON.stringify({push:record.lastPush}));return 'failed';}
  }
  async alarm(){return this.ctx.blockConcurrencyWhile(async()=>{
   const data=await this.ctx.storage.get('devices')||{};const now=Date.now(),work=[];

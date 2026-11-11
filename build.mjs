@@ -23,7 +23,7 @@ writeFileSync(D + '/index.html', `<!doctype html>
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SwoleUp</title>
-<meta name="swoleup-version" content="2026-11-11.13">
+<meta name="swoleup-version" content="2026-11-11.14">
 <meta name="description" content="SwoleUp - אימונים, תזונה ומעקב">
 <meta property="og:title" content="SwoleUp">
 <meta property="og:description" content="אימונים, תזונה ומעקב במקום אחד">
@@ -61,7 +61,7 @@ writeFileSync(D + '/manifest.webmanifest', JSON.stringify({
     { src: './icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }
   ]
 }, null, 2));
-writeFileSync(D + '/sw.js', `const CACHE = 'swoleup-v13';
+writeFileSync(D + '/sw.js', `const CACHE = 'swoleup-v14';
 const ASSETS = ['./', './index.html', './app.js', './app.css', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map(p => new Request(p, {cache:'reload'})))).then(() => self.skipWaiting()));

@@ -1,5 +1,6 @@
 // Push integration contains no AI key, profile, chat or exercise detail.
 // Only a per-device capability is kept locally, outside backups and IndexedDB.
+import {pushEvent,pushTransportCode} from './pushDiagnostics';
 import {PUSH_ENDPOINT} from './pushConfig';
 const TOKEN='swoleup.push.token',ENABLED='swoleup.push.enabled',REV='swoleup.push.revision';
 let running=false,rest=0,queue=Promise.resolve();
@@ -16,10 +17,20 @@ function snapshot(){
  const previous=Number(localStorage.getItem(REV)||0),revision=Math.max(Date.now(),previous+1);localStorage.setItem(REV,String(revision));
  return {times:prefs.times||[],timezone:Intl.DateTimeFormat().resolvedOptions().timeZone,completedDay:logs.some((l:any)=>l.date===day)?day:null,active,restAt:running&&document.visibilityState==='hidden'&&rest>Date.now()?rest:null,revision};
 }
+let cspAt=0;
+window.addEventListener('securitypolicyviolation',(e:SecurityPolicyViolationEvent)=>{if(e.effectiveDirective==='connect-src'&&e.blockedURI.startsWith(PUSH_ENDPOINT))cspAt=Date.now()});
 async function request(path:string,method:string,body?:any){
- const response=await fetch(PUSH_ENDPOINT+path,{method,headers:{Authorization:'Bearer '+token(),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,keepalive:true,signal:AbortSignal.timeout(7000)});
- if(!response.ok)throw Error(response.status===410?'expired':response.status===429?'limit':'network');return response;
+ const phase=path==='/test'?'test':method==='DELETE'?'delete':'sync',start=Date.now();pushEvent(phase,'request');
+ let response:Response;
+ try{response=await fetch(PUSH_ENDPOINT+path,{method,headers:{Authorization:'Bearer '+token(),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,keepalive:true,signal:AbortSignal.timeout(10000)});}
+ catch(e){await new Promise(r=>setTimeout(r,0));const code=cspAt>=start?'csp':pushTransportCode(e);pushEvent(phase,code);throw Error('לא הצלחנו להשלים את הפעולה. קוד בדיקה: push-'+phase+'-'+code+'.');}
+ let data:any={};try{data=await response.clone().json()}catch{}
+ const allowed=['accepted','provider_rejected','BadJwtToken','BadTtl','BadUrgency','BadWebPushTopic','BadWebPushRequest','BadAuthorizationHeader','BadCryptoKey','BadEncryption','BadRegistration','BadTopic','DeviceTokenNotForTopic','ExpiredProviderToken','Forbidden','InvalidProviderToken','MissingProviderToken','PayloadTooLarge','Unregistered','send_timeout','encryption_failed','provider_network','not_registered','subscription_expired','wait_one_minute','device_limit','invalid_state','unauthorized','origin'];
+ const code=allowed.includes(data.code||data.error)?data.code||data.error:response.ok?'success':'status';
+ pushEvent(phase,code,response.status,Number.isInteger(data.pushStatus)?data.pushStatus:undefined);
+ if(!response.ok)throw Error((response.status===429?'צריך להמתין דקה בין בדיקות. ':response.status===410?'רישום ההתראות פג. לחץ על חדש רישום במכשיר. ':'שליחת ההתראה לא הושלמה. ')+'קוד בדיקה: push-'+phase+'-'+code+'-'+response.status+(data.pushStatus?'-'+data.pushStatus:'')+'.');return response;
 }
+
 export async function syncPush(subscription?:PushSubscriptionJSON){
  if(!PUSH_ENDPOINT||localStorage.getItem(ENABLED)!=='yes')return;
  const state={...snapshot(),...(subscription?{subscription}:{})};
@@ -34,11 +45,11 @@ export async function enablePush(){
  if(!PUSH_ENDPOINT)throw Error('שירות ההתראות עדיין לא הוגדר.');
  if(!('Notification'in window)||!('PushManager'in window)||!('serviceWorker'in navigator))throw Error('התראות אינן זמינות כאן. ב-iPhone יש לפתוח את SwoleUp מהאייקון במסך הבית.');
  // Ask immediately in the click gesture, before any network request.
- const permission=await Notification.requestPermission();if(permission!=='granted')throw Error('ההרשאה לא ניתנה. אפשר לאפשר התראות בהגדרות המכשיר.');
- const response=await fetch(PUSH_ENDPOINT+'/config',{signal:AbortSignal.timeout(7000)});if(!response.ok)throw Error('שירות ההתראות לא זמין כרגע.');
+ const permission=await Notification.requestPermission();pushEvent('permission',permission);if(permission!=='granted')throw Error('ההרשאה לא ניתנה. אפשר לאפשר התראות בהגדרות המכשיר.');
+ let response:Response;try{response=await fetch(PUSH_ENDPOINT+'/config',{signal:AbortSignal.timeout(10000)});pushEvent('config',response.ok?'success':'status',response.status)}catch(e){const code=pushTransportCode(e);pushEvent('config',code);throw Error('לא הצלחנו לטעון את שירות ההתראות. קוד בדיקה: push-config-'+code+'.')}if(!response.ok)throw Error('שירות ההתראות לא זמין כרגע. קוד בדיקה: push-config-status-'+response.status+'.');
  const {publicKey}=await response.json();if(typeof publicKey!=='string')throw Error('הגדרת ההתראות חסרה.');
  const bytes=Uint8Array.from(atob(publicKey.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
- const reg=await navigator.serviceWorker.ready;const subscription=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes});
+ const reg=await navigator.serviceWorker.ready;let subscription:PushSubscription;try{subscription=await reg.pushManager.getSubscription()||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:bytes});pushEvent('subscribe','success')}catch(e){pushEvent('subscribe',pushTransportCode(e));throw Error('הרישום לשירות ההתראות לא הושלם. קוד בדיקה: push-subscribe-'+pushTransportCode(e)+'.')}
  await request('/state','PUT',{...snapshot(),subscription:subscription.toJSON()});localStorage.setItem(ENABLED,'yes');message='סונכרן עם שירות ההתראות.';emit();
 }
 export async function disablePush(){
