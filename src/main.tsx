@@ -5,4 +5,4 @@ import './tw.css';
 import { App } from './App';
 createRoot(document.getElementById('root')!).render(<App />);
 
-if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'}).catch(() => {}));

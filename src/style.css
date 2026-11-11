@@ -303,3 +303,6 @@ input, textarea { scroll-margin-block:24px; }
 .screen > * { flex-shrink:0; }
 .coach-panel > .screen:not(.coach-screen) { flex:1; min-height:0; overflow-y:auto; padding-bottom:20px; }
 .coach-screen > .chat { flex-shrink:1; }
+
+.update-notice { flex-shrink:0; padding:10px 16px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:#29331b; color:#f4f5fb; font-size:13px; z-index:90; }
+.update-notice button { color:#cdf14c; font-weight:700; text-decoration:underline; min-height:36px; }

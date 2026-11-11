@@ -16,12 +16,24 @@ type Sub = 'main' | 'diet' | 'medical' | 'equipment' | 'weights' | 'backup' | 's
 
 export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => void; onRedoOnboarding: () => void; onReset: () => void }) {
     const [displayInfo, setDisplayInfo] = useState('');
+    const [updateMessage, setUpdateMessage] = useState('');
+    const [updateAvailable, setUpdateAvailable] = useState(false);
+    const checkUpdate = async () => {
+        setUpdateMessage('בודק גרסה…');
+        try {
+            const registration=await navigator.serviceWorker?.getRegistration(); await registration?.update().catch(()=>{});
+            const res=await fetch(new URL('./index.html',location.href),{cache:'no-store'});if(!res.ok)throw new Error();
+            const html=await res.text();const latest=new DOMParser().parseFromString(html,'text/html').querySelector('meta[name="swoleup-version"]')?.getAttribute('content');
+            const current=document.querySelector('meta[name="swoleup-version"]')?.getAttribute('content');if(!latest||!current)throw new Error();
+            setUpdateAvailable(latest!==current);setUpdateMessage(latest===current?'הגרסה מעודכנת.':'יש גרסה חדשה. רענון יסגור מסכים פתוחים.');
+        }catch{setUpdateMessage('לא ניתן לבדוק כרגע. בדוק את החיבור ונסה שוב.')}
+    };
     const readDisplayInfo = () => {
         const app=document.querySelector('.app') as HTMLElement;
         const nav=document.querySelector('nav') as HTMLElement;
         const probe=document.createElement('div');probe.style.cssText='position:fixed;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';document.body.appendChild(probe);const ps=getComputedStyle(probe);const safe=[ps.paddingTop,ps.paddingBottom];probe.remove();
         const rect=(el:HTMLElement)=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,height:r.height}};
-        setDisplayInfo(JSON.stringify({version:'6.4',screen:[screen.width,screen.height],inner:[innerWidth,innerHeight],outer:[outerWidth,outerHeight],dpr:devicePixelRatio,visual:window.visualViewport?{height:visualViewport!.height,top:visualViewport!.offsetTop,scale:visualViewport!.scale}:null,safe,standalone:matchMedia('(display-mode:standalone)').matches,app:rect(app),nav:rect(nav),navPadding:getComputedStyle(nav).paddingBottom,root:rect(document.querySelector('#root') as HTMLElement)},null,0).replace(/,"(?=[a-zA-Z])/g,',\n"'));
+        setDisplayInfo(JSON.stringify({version:'6.5',screen:[screen.width,screen.height],inner:[innerWidth,innerHeight],outer:[outerWidth,outerHeight],dpr:devicePixelRatio,visual:window.visualViewport?{height:visualViewport!.height,top:visualViewport!.offsetTop,scale:visualViewport!.scale}:null,safe,standalone:matchMedia('(display-mode:standalone)').matches,app:rect(app),nav:rect(nav),navPadding:getComputedStyle(nav).paddingBottom,root:rect(document.querySelector('#root') as HTMLElement)},null,0).replace(/,"(?=[a-zA-Z])/g,',\n"'));
     };
     const [dark, setDark] = useStore<boolean>('dark.v1', true);
     const [sub, setSub] = useState<Sub>('main');
@@ -332,7 +344,11 @@ export function Settings({ onBack, onRedoOnboarding, onReset }: { onBack: () => 
             <Row icon="question" label="מידע רפואי ומקורות" onClick={() => setSub('sources')} />
         </Group>
 
-        <Card className="p-4">
+        <Card className="p-4 flex flex-col gap-3">
+            <strong className="text-[14px] text-ink">SwoleUp v6.5</strong>
+            <button className="text-[14px] text-acc text-right" onClick={checkUpdate}>בדוק עדכון</button>
+            {updateMessage && <p className="text-[13px] text-muted">{updateMessage}</p>}
+            {updateAvailable && <button className="text-acc" onClick={()=>location.reload()}>רענן לגרסה החדשה</button>}
             <button className="text-[14px] text-muted text-right" onClick={readDisplayInfo}>מידע תצוגה לבדיקה</button>
             {displayInfo && <pre dir="ltr" style={{fontSize:12,whiteSpace:'pre-wrap',margin:0,userSelect:'text'}}>{displayInfo}</pre>}
         </Card>

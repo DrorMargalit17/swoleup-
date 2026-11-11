@@ -13,6 +13,7 @@ import { Icon } from './ui';
 import { spring, easeOut } from './ds';
 import hero from './photos/drorfit-hero.webp';
 import './style.css';
+import { UpdateNotice } from './UpdateNotice';
 import { PageLoadOverlay } from './PageLoadOverlay';
 
 type Tab = 'workouts' | 'nutrition' | 'coach' | 'profile';
@@ -79,7 +80,7 @@ export function App() {
 
     if (!profile || !plan) {
         return <div dir="rtl" lang="he" className={dark ? "app onboarding-app" : "app light onboarding-app"}>
-            {saveWarning}<div className="content">
+            <UpdateNotice />{saveWarning}<div className="content">
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={easeOut}
                     className="text-[30px] font-extrabold text-ink text-center tracking-tight">
                     Swole<span className="text-acc">Up</span>
@@ -98,7 +99,7 @@ export function App() {
     }
 
     return <div dir="rtl" lang="he" className={dark ? "app" : "app light"}>
-        {saveWarning}<main className={"content" + (tab === "coach" ? " coach-content" : "")}>
+        <UpdateNotice />{saveWarning}<main className={"content" + (tab === "coach" ? " coach-content" : "")}>
             {/* key-remount slide-in only: no AnimatePresence exit, so a stuck
                 exit animation can never freeze tab switching in the viewer iframe */}
             <motion.div key={tab} style={{ display: tab === 'coach' ? 'none' : 'block' }}
