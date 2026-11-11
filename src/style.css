@@ -248,18 +248,33 @@ body { background: #0e1018; font-family: 'Rubik', 'Heebo', 'Segoe UI', system-ui
 .app.light .border-hairline { border-color: var(--hair); }
 .welcome-img { height: auto; aspect-ratio: 525 / 700; }
 
-/* Standalone layout: fluid viewport, safe areas, and a keyboard-sized shell. */
-html { height:100%; overflow:hidden; background:#0e1018; }
-body { height:100%; overflow:hidden; overscroll-behavior:none; }
+/* Standalone viewport and safe areas. No JS keyboard or scroll repositioning. */
+html { min-height:100%; background:#0e1018; }
+body { min-height:100%; margin:0; }
 #root { height:100%; }
-.app { box-sizing:border-box; position:relative; top:var(--app-top,0px); height:var(--app-height,100dvh); width:100%; max-width:640px; margin-inline:auto; padding-top:var(--safe-top,env(safe-area-inset-top,0px)); padding-left:env(safe-area-inset-left,0px); padding-right:env(safe-area-inset-right,0px); }
+.app { box-sizing:border-box; position:relative; height:100vh; height:100dvh; width:100%; max-width:640px; margin-inline:auto; padding-top:var(--safe-top,env(safe-area-inset-top,0px)); padding-left:env(safe-area-inset-left,0px); padding-right:env(safe-area-inset-right,0px); }
 .content { overscroll-behavior-y:contain; scroll-padding:24px; }
 .app:has(.welcome-img) .content { padding-bottom:calc(20px + var(--safe-bottom,env(safe-area-inset-bottom,0px))); }
 .welcome-img { width:clamp(140px,28vh,250px); max-width:70%; max-height:32dvh; object-fit:cover; }
 input:not([type=range]), textarea, select { font-size:16px!important; }
-.keyboard-open .tabbar { display:none; }
+
 .storage-warning { flex-shrink:0; background:#583319; color:#fff2d8; padding:10px 16px; font-size:13px; line-height:1.5; }
 .storage-loading { display:grid; place-items:center; font-size:16px; }
 .sheet-body { padding-bottom:calc(24px + var(--safe-bottom,env(safe-area-inset-bottom,0px))); }
 @media (min-width:700px) { .app { border-inline:1px solid var(--hair); } }
 @media (max-height:550px) { .welcome-img { max-height:110px; width:82px; } .content { padding-top:10px; } }
+
+/* Let Safari scroll focused onboarding fields in the document, without nested
+   scroll locks or a viewport-height change fighting its keyboard animation. */
+.onboarding-app { height:auto; min-height:100svh; overflow:visible; }
+.onboarding-app .content { flex:none; overflow:visible; }
+.onboarding-app .welcome-img { width:180px; max-height:none; }
+input, textarea { scroll-margin-block:24px; }
+/* Installed iOS app: fill the layout viewport, never visualViewport.height.
+   The status bar and home-indicator insets are each counted exactly once. */
+@media (display-mode:standalone) {
+    html, body, #root { height:100%; }
+    .app:not(.onboarding-app) { height:100%; min-height:100%; }
+    .app { padding-top:calc(env(safe-area-inset-top,0px) + 8px); }
+    .tabbar { padding-bottom:calc(4px + env(safe-area-inset-bottom,0px)); }
+}

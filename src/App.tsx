@@ -58,30 +58,6 @@ export function App() {
     const prefersDark = useMemo(() => true, []);
     const [dark] = useStore<boolean>('dark.v1', prefersDark);
     const storage = useStorageStatus();
-    useEffect(() => {
-        const apply = () => {
-            const vv = window.visualViewport;
-            const h = vv?.height || window.innerHeight;
-            document.documentElement.style.setProperty('--app-height', h + 'px');
-            document.documentElement.style.setProperty('--app-top', (vv?.offsetTop || 0) + 'px');
-            const typing = /INPUT|TEXTAREA/.test(document.activeElement?.tagName || '');
-            document.documentElement.classList.toggle('keyboard-open', typing && window.innerHeight-h>120);
-        };
-        apply();
-        window.addEventListener('resize', apply);
-        window.visualViewport?.addEventListener('resize', apply);
-        window.visualViewport?.addEventListener('scroll', apply);
-        document.addEventListener('focusin', apply);
-        document.addEventListener('focusout', apply);
-        return () => {
-            window.removeEventListener('resize', apply);
-            window.visualViewport?.removeEventListener('resize', apply);
-            window.visualViewport?.removeEventListener('scroll', apply);
-            document.removeEventListener('focusin', apply);
-            document.removeEventListener('focusout', apply);
-        };
-    }, []);
-
     // Migrate older plans to the level-aware v2 generator.
     useEffect(() => {
         if (profile && (!plan || (plan as Plan).version !== 2)) setPlan(generatePlan(profile));
@@ -100,7 +76,7 @@ export function App() {
     if (building) return <div dir="rtl" lang="he" className={dark ? "app" : "app light"}><Building /></div>;
 
     if (!profile || !plan) {
-        return <div dir="rtl" lang="he" className={dark ? "app" : "app light"}>
+        return <div dir="rtl" lang="he" className={dark ? "app onboarding-app" : "app light onboarding-app"}>
             {saveWarning}<div className="content">
                 <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={easeOut}
                     className="text-[30px] font-extrabold text-ink text-center tracking-tight">
