@@ -1,4 +1,4 @@
-const CACHE = 'swoleup-v15';
+const CACHE = 'swoleup-v16';
 const ASSETS = ['./', './index.html', './app.js', './app.css', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map(p => new Request(p, {cache:'reload'})))).then(() => self.skipWaiting()));
@@ -20,7 +20,7 @@ self.addEventListener('push', e => {
   const title=typeof data.title==='string'?data.title.slice(0,80):'SwoleUp';
   const body=typeof data.body==='string'?data.body.slice(0,240):'עדכון חדש מ-SwoleUp';
   // iOS requires every push to be user-visible, even if the app is open.
-  e.waitUntil(self.registration.showNotification(title,{body,tag:typeof data.tag==='string'?data.tag:'swoleup',icon:'./icon-192.png',badge:'./icon-192.png',dir:'rtl',lang:'he'}));
+  e.waitUntil(self.registration.showNotification(title,{body,tag:['swoleup-test','swoleup-rest','swoleup-workout'].includes(data.tag)?data.tag:'swoleup',renotify:false,icon:new URL('./icon-192.png',self.location.href).href,badge:new URL('./icon-192.png',self.location.href).href,dir:'rtl',lang:'he'}));
 });
 self.addEventListener('notificationclick',e=>{
  e.notification.close();const url=new URL('./',self.location.href).href;

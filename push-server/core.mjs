@@ -43,7 +43,7 @@ export class PushSchedule {
    if(!old)return Response.json({error:'not_registered'},{status:404});
    if(now-(old.testAt||0)<60000)return Response.json({error:'wait_one_minute'},{status:429});
    old.testAt=now;await this.save(data);
-   const result=await this.send(old,{title:'SwoleUp',body:'ההתראות מוכנות. נתראה באימון הבא!',tag:'swoleup-test'},60);
+   const result=await this.send(old,{title:'ההתראות פעילות ✅',body:'הכול מוכן. נתראה באימון הבא.',tag:'swoleup-test'},60);
    old.lastPush={...old.lastPush,time:new Date().toISOString()};await this.save(data);
    if(result==='expired'){delete data[id];await this.save(data);return Response.json({error:'subscription_expired'},{status:410});}
    return Response.json({ok:result==='sent',code:old.lastPush?.code||result,pushStatus:old.lastPush?.status||0,phase:old.lastPush?.phase||'send'},{status:result==='sent'?200:502});
@@ -83,9 +83,9 @@ export class PushSchedule {
   const data=await this.ctx.storage.get('devices')||{};const now=Date.now(),work=[];
   for(const[id,r]of Object.entries(data)){
    if(now-r.updated>=MAX_AGE){delete data[id];continue;}
-   if(r.restAt&&r.restAt<=now){const due=r.restAt;r.restAt=null;if(now-due<60000&&r.activeUntil>now)work.push([id,{title:'הגיע הזמן לסט הבא',body:'המנוחה הסתיימה. חוזרים ל-SwoleUp?',tag:'swoleup-rest'},45]);}
+   if(r.restAt&&r.restAt<=now){const due=r.restAt;r.restAt=null;if(now-due<60000&&r.activeUntil>now)work.push([id,{title:'הגיע הזמן לסט הבא 💪',body:'המנוחה הסתיימה. חוזרים בקצב שלך.',tag:'swoleup-rest'},45]);}
    if(r.nextAt&&r.nextAt<=now){const due=r.nextAt,day=localDate(now,r.timezone);r.nextAt=nextReminder(now,r.timezone,r.times);
-    if(now-due<5*60000&&r.completedDay!==day&&r.activeUntil<=now)work.push([id,{title:'זמן לזוז',body:'האימון שלך מחכה לך ב-SwoleUp. מתחילים?',tag:'swoleup-workout'},120]);}
+    if(now-due<5*60000&&r.completedDay!==day&&r.activeUntil<=now)work.push([id,{title:'זמן להתאמן 🔥',body:'קצת זמן לעצמך, עוד צעד קדימה. מתחילים?',tag:'swoleup-workout'},120]);}
   }
   // Persist removal first: alarm retries cannot repeatedly send the same due notification.
   // Transport failure can lose this reminder; this deliberately prefers no duplicate/stale alerts.

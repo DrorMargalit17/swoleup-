@@ -23,7 +23,7 @@ writeFileSync(D + '/index.html', `<!doctype html>
 <meta name="referrer" content="no-referrer">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>SwoleUp</title>
-<meta name="swoleup-version" content="2026-11-11.15">
+<meta name="swoleup-version" content="2026-11-11.16">
 <meta name="description" content="SwoleUp - אימונים, תזונה ומעקב">
 <meta property="og:title" content="SwoleUp">
 <meta property="og:description" content="אימונים, תזונה ומעקב במקום אחד">
@@ -61,7 +61,7 @@ writeFileSync(D + '/manifest.webmanifest', JSON.stringify({
     { src: './icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' }
   ]
 }, null, 2));
-writeFileSync(D + '/sw.js', `const CACHE = 'swoleup-v15';
+writeFileSync(D + '/sw.js', `const CACHE = 'swoleup-v16';
 const ASSETS = ['./', './index.html', './app.js', './app.css', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-180.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS.map(p => new Request(p, {cache:'reload'})))).then(() => self.skipWaiting()));
@@ -79,6 +79,6 @@ self.addEventListener('fetch', (e) => {
 });
 `);
 // Push handlers are appended without changing offline caching behavior.
-writeFileSync(D + '/sw.js', readFileSync(D + '/sw.js','utf8')+"\nself.addEventListener('push', e => {\n  let data={};try{data=e.data?.json()||{}}catch{}\n  const title=typeof data.title==='string'?data.title.slice(0,80):'SwoleUp';\n  const body=typeof data.body==='string'?data.body.slice(0,240):'\u05e2\u05d3\u05db\u05d5\u05df \u05d7\u05d3\u05e9 \u05de-SwoleUp';\n  // iOS requires every push to be user-visible, even if the app is open.\n  e.waitUntil(self.registration.showNotification(title,{body,tag:typeof data.tag==='string'?data.tag:'swoleup',icon:'./icon-192.png',badge:'./icon-192.png',dir:'rtl',lang:'he'}));\n});\nself.addEventListener('notificationclick',e=>{\n e.notification.close();const url=new URL('./',self.location.href).href;\n e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async windows=>{const found=windows.find(w=>w.url.startsWith(url));if(found)return found.focus();return clients.openWindow(url)}));\n});\n");
+writeFileSync(D + '/sw.js', readFileSync(D + '/sw.js','utf8')+"\nself.addEventListener('push', e => {\n  let data={};try{data=e.data?.json()||{}}catch{}\n  const title=typeof data.title==='string'?data.title.slice(0,80):'SwoleUp';\n  const body=typeof data.body==='string'?data.body.slice(0,240):'\u05e2\u05d3\u05db\u05d5\u05df \u05d7\u05d3\u05e9 \u05de-SwoleUp';\n  // iOS requires every push to be user-visible, even if the app is open.\n  e.waitUntil(self.registration.showNotification(title,{body,tag:['swoleup-test','swoleup-rest','swoleup-workout'].includes(data.tag)?data.tag:'swoleup',renotify:false,icon:new URL('./icon-192.png',self.location.href).href,badge:new URL('./icon-192.png',self.location.href).href,dir:'rtl',lang:'he'}));\n});\nself.addEventListener('notificationclick',e=>{\n e.notification.close();const url=new URL('./',self.location.href).href;\n e.waitUntil(clients.matchAll({type:'window',includeUncontrolled:true}).then(async windows=>{const found=windows.find(w=>w.url.startsWith(url));if(found)return found.focus();return clients.openWindow(url)}));\n});\n");
 writeFileSync(D + '/.nojekyll', '');
 console.log('Built docs/');
