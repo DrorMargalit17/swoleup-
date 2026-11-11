@@ -26,7 +26,7 @@ export interface GeminiResponse { candidates?: { content?: { parts?: { text?: st
 
 // Bounded retries for transient provider failures. Never retry bad credentials.
 const TRANSIENT_STATUSES = new Set([408,429,500,502,503,504]);
-export async function geminiGenerate(settings: CoachSettings, body: unknown, onStatus?: (message:string)=>void): Promise<GeminiResponse> {
+export async function geminiGenerate(settings: CoachSettings, body: unknown, onStatus?: (message:string)=>void, fastChat=false): Promise<GeminiResponse> {
     const models=[...new Set([geminiModelOf(settings), ...GEMINI_FALLBACKS])];
     let lastStatus=503, attempt=0;
     for(let i=0;i<models.length;i++) {
@@ -35,24 +35,31 @@ export async function geminiGenerate(settings: CoachSettings, body: unknown, onS
         for(let n=0;n<attempts;n++) {
             attempt++;
             let res:Response;
-            const started=Date.now();recordApi('request',attempt,started);
+            const payload=fastChat ? {...(body as object), generationConfig:{maxOutputTokens:4096,thinkingConfig:{thinkingLevel:model==='gemini-3.6-flash'||model==='gemini-3-flash-preview'?'MINIMAL':'LOW'}}} : body;
+            const raw=JSON.stringify(payload);
+            const details={model:GEMINI_FALLBACKS.includes(model)?model:'custom-model',phase:'headers',bytes:new TextEncoder().encode(raw).length};
+            const started=Date.now();recordApi('request',attempt,started,undefined,details);
+            const controller=new AbortController();let timer:ReturnType<typeof setTimeout>;
+            const deadline=new Promise<never>((_,reject)=>{timer=setTimeout(()=>{controller.abort();reject(new DOMException('Deadline','TimeoutError'));},fastChat?15000:45000)});
             try {
-                res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-                    method:'POST', headers:{'Content-Type':'application/json','x-goog-api-key':settings.apiKey}, body:JSON.stringify(body), signal:AbortSignal.timeout(45000),
-                });
+                res=await Promise.race([fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+                    method:'POST', headers:{'Content-Type':'application/json','x-goog-api-key':settings.apiKey}, body:raw, signal:controller.signal,
+                }),deadline]);
+                recordApi('headers',attempt,started,res.status,details);
             } catch(e) {
                 // CSP delivery may follow fetch rejection by one event-loop turn.
                 await new Promise(r=>setTimeout(r,0));
                 const reason=apiCspSince(started)?'csp':e instanceof DOMException && (e.name==='TimeoutError'||e.name==='AbortError')?'timeout':!navigator.onLine?'offline':'network';
-                recordApi(reason,attempt,started);
+                clearTimeout(timer!);recordApi(reason,attempt,started,undefined,details);
+                if(reason==='timeout'&&fastChat){lastStatus=0;onStatus?.('המודל מתעכב, מנסה מודל חלופי…');break;}
                 throw new Error(reason==='csp'?'הדפדפן חסם את החיבור לגוגל בגלל מדיניות האתר. קוד בדיקה: csp.':reason==='timeout'?'גוגל לא ענתה בזמן. נסה שוב בעוד רגע. קוד בדיקה: timeout.':reason==='offline'?'המכשיר מדווח שאין חיבור לאינטרנט. קוד בדיקה: offline.':'החיבור לגוגל נכשל לפני שהתקבלה תשובה. זה יכול להיות חיבור, סינון או תקלה אצל הספק. קוד בדיקה: network.');
             }
             if(res.ok){
                 onStatus?.('');
-                try{const result=await res.json();recordApi('success',attempt,started);return result;}
-                catch{recordApi('response',attempt,started);throw new Error('התקבלה תשובה שלא ניתן לקרוא מגוגל. קוד בדיקה: response.');}
+                try{const result=await Promise.race([res.json(),deadline]);clearTimeout(timer!);recordApi('success',attempt,started,res.status,{...details,phase:'body'});return result;}
+                catch(e){clearTimeout(timer!);const reason=controller.signal.aborted?'timeout':'response';recordApi(reason,attempt,started,res.status,{...details,phase:'body'});if(reason==='timeout'&&fastChat){lastStatus=0;onStatus?.('המודל מתעכב, מנסה מודל חלופי…');break;}throw new Error(reason==='timeout'?'גוגל לא ענתה בזמן. קוד בדיקה: timeout.':'התקבלה תשובה שלא ניתן לקרוא מגוגל. קוד בדיקה: response.');}
             }
-            lastStatus=res.status;recordApi('status',attempt,started,res.status);
+            clearTimeout(timer!);lastStatus=res.status;recordApi('status',attempt,started,res.status,details);
             if(res.status===400||res.status===401||res.status===403) throw new Error('גוגל דחתה את הבקשה. בדוק את המפתח, הרשאות ה-API והמודל בהגדרות.');
             if(res.status===404) break; // Only the missing model justifies immediate fallback.
             if(!TRANSIENT_STATUSES.has(res.status))throw new Error('לא התקבלה תשובה מגוגל. נסה שוב בעוד רגע.');
@@ -66,7 +73,7 @@ export async function geminiGenerate(settings: CoachSettings, body: unknown, onS
             await new Promise(r=>setTimeout(r,Math.max(retryAfter||0,Math.min(4000,1000*2**(attempt-1)))+Math.floor(Math.random()*250)));
         }
     }
-    throw new Error(lastStatus===429?'הגעת כרגע למגבלת הבקשות של גוגל. נסה שוב מאוחר יותר; אין צורך להחליף מפתח.':lastStatus===404?'המודל לא זמין כרגע. בדוק את בחירת המודל בהגדרות.':'השרתים של גוגל עמוסים כרגע. נסה שוב בעוד רגע; זו לא בהכרח בעיה במפתח.');
+    throw new Error(lastStatus===0?'כל המודלים התעכבו מעבר לזמן ההמתנה. נסה שוב מאוחר יותר. קוד בדיקה: timeout.':lastStatus===429?'הגעת כרגע למגבלת הבקשות של גוגל. נסה שוב מאוחר יותר; אין צורך להחליף מפתח.':lastStatus===404?'המודל לא זמין כרגע. בדוק את בחירת המודל בהגדרות.':'השרתים של גוגל עמוסים כרגע. נסה שוב בעוד רגע; זו לא בהכרח בעיה במפתח.');
 }
 
 function systemPrompt(profile: Profile, plan: Plan | null, logs: WorkoutLog[], weights: WeightEntry[]): string {
@@ -134,7 +141,7 @@ export async function askCoach(
             ...history.slice(-10).map((m) => ({ role: m.role === 'user' ? 'user' : 'model', parts: [{ text: m.text }] })),
             { role: 'user', parts: [{ text: question }] },
         ],
-    }, onStatus);
+    }, onStatus, true);
     const text = j.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text || '').join('').trim();
     return text || 'לא קיבלתי תשובה, נסה שוב.';
 }
