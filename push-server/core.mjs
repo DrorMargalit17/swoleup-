@@ -71,12 +71,13 @@ export class PushSchedule {
   try{
    const payload=await buildPushPayload({data:message,options:{ttl,urgency:'high',topic:message.tag} },record.subscription,{subject:APP,publicKey:this.env.VAPID_PUBLIC_KEY,privateKey:this.env.VAPID_PRIVATE_KEY});
    phase='provider';
-   const res=await fetch(record.subscription.endpoint,{...payload,redirect:'error',signal:AbortSignal.timeout(4000)});
-   let reason='';if(!res.ok){try{const j=await res.json();const allowed=['BadJwtToken','BadTtl','BadUrgency','BadWebPushTopic','BadWebPushRequest','BadAuthorizationHeader','BadCryptoKey','BadEncryption','BadRegistration','BadTopic','DeviceTokenNotForTopic','ExpiredProviderToken','Forbidden','InvalidProviderToken','MissingProviderToken','PayloadTooLarge','Unregistered'];if(allowed.includes(j.reason))reason=j.reason;}catch{}}
+   const sendHeaders=new Headers(payload.headers);sendHeaders.delete('content-length');
+   const res=await fetch(record.subscription.endpoint,{...payload,headers:sendHeaders,redirect:'manual',signal:AbortSignal.timeout(4000)});
+   let reason='';if(!res.ok){try{const j=await res.json();const allowed=['VapidPkHashMismatch','BadVapidPublicKey','BadPath','MethodNotAllowed','TooManyRequests','InternalServerError','ServiceUnavailable','Shutdown','IdleTimeout','BadJwtToken','BadTtl','BadUrgency','BadWebPushTopic','BadWebPushRequest','BadAuthorizationHeader','BadCryptoKey','BadEncryption','BadRegistration','BadTopic','DeviceTokenNotForTopic','ExpiredProviderToken','Forbidden','InvalidProviderToken','MissingProviderToken','PayloadTooLarge','Unregistered'];if(allowed.includes(j.reason))reason=j.reason;}catch{}}
    record.lastPush={phase,status:res.status,code:res.ok?'accepted':reason||'provider_rejected'};
    console.log(JSON.stringify({push:record.lastPush}));
    if(res.status===404||res.status===410)return 'expired';return res.ok?'sent':'failed';
-  }catch(e){record.lastPush={phase,status:0,code:e?.name==='TimeoutError'||e?.name==='AbortError'?'send_timeout':phase==='encrypt'?'encryption_failed':'provider_network'};console.log(JSON.stringify({push:record.lastPush}));return 'failed';}
+  }catch(e){record.lastPush={phase,status:0,code:e?.name==='TimeoutError'||e?.name==='AbortError'?'send_timeout':phase==='encrypt'?'encryption_failed':/TLS|SSL|handshake/i.test(String(e?.message))?'provider_tls':/Content-Length|length/i.test(String(e?.message))?'provider_length':/DNS|resolve/i.test(String(e?.message))?'provider_dns':/reset|lost|closed/i.test(String(e?.message))?'provider_connection':'provider_network'};console.log(JSON.stringify({push:record.lastPush}));return 'failed';}
  }
  async alarm(){return this.ctx.blockConcurrencyWhile(async()=>{
   const data=await this.ctx.storage.get('devices')||{};const now=Date.now(),work=[];

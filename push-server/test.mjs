@@ -41,3 +41,6 @@ r=await worker.fetch(new Request('https://worker/state',{method:'PUT',headers:{O
 r=await worker.fetch(new Request('https://worker/state',{method:'PUT',headers:{Origin:ORIGIN,Authorization:'Bearer '+'A'.repeat(43)},body:'{}'}),env);assert.equal(r.status,200);assert.equal(called,1);
 Date.now=realNow;
 console.log('state: daily / suppression active+complete / rest single-fire / cancel / adjust / stale revision+late timer / delete / input validation / per-device authorization pass');
+
+const originalFetch=globalThis.fetch;let transportOptions;globalThis.fetch=async(url,options)=>{transportOptions=options;return Response.json({reason:'BadPath'},{status:400})};
+try{const realSender=new PushSchedule({}, {VAPID_PUBLIC_KEY:pub,VAPID_PRIVATE_KEY:jwk.d});const record={subscription};assert.equal(await realSender.send(record,{title:'test',tag:'swoleup-test'},60),'failed');assert.equal(transportOptions.redirect,'manual');assert.equal(new Headers(transportOptions.headers).has('content-length'),false);assert.deepEqual(record.lastPush,{phase:'provider',status:400,code:'BadPath'});console.log('Transport regression PASS: Workers-supported manual redirect, no explicit length, Apple status/reason preserved.');}finally{globalThis.fetch=originalFetch;}
